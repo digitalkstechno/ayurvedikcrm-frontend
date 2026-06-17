@@ -119,7 +119,8 @@ export default function LeadListPage() {
         reasonCallId: l.reason_call?._id || l.reason_call || "",
         note: l.note || "",
         reminderDate: l.reminder || "",
-        products: l.products || []
+        products: l.products || [],
+        addedByName: l.addedByName || ""
       }));
       setLeads(mappedLeads);
       if (leadsRes.total !== undefined) {
@@ -472,7 +473,16 @@ export default function LeadListPage() {
     { key: "phone_number", header: "Phone Number" },
     { key: "product", header: "Product Name" },
     { key: "subtotal", header: "Total", render: (val) => `₹${val}` },
-    { key: "assgin", header: "Assign By", render: (val) => <span className="uppercase">{val}</span> },
+    { 
+      key: "assgin", 
+      header: "Assign By", 
+      render: (val, row) => (
+        <div className="flex flex-col">
+          <span className="uppercase">{val}</span>
+          {(row as any).addedByName && <span className="text-[10px] text-gray-500 lowercase mt-0.5 font-medium">added by {(row as any).addedByName}</span>}
+        </div>
+      ) 
+    },
     { key: "date", header: "Date" },
     {
       key: "status",

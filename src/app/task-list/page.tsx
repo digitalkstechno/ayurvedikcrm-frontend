@@ -71,7 +71,7 @@ export default function LeadTryPage() {
           assginUser: assignUser,
           lead: leadName,
           phone_number: l.phone_number || "N/A",
-          addedBy: "Admin", // Placeholder or get from activity log
+          addedBy: (l as any).addedByName || (l as any).addedBy?.name || "Admin", // Pull from backend map
           message: "This lead order has been successfully repeated"
         };
       });

@@ -182,12 +182,8 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
     setStatusTwo((prevLead.reason_call as any)?._id || prevLead.reason_call || "");
     setNoteText(prevLead.note || "");
 
-    // Assign Staff logic: Admin can see previous staff, Staff is forced to themselves
-    if (isAdmin) {
-      setAssignee((prevLead.assgin as any)?._id || prevLead.assgin || "");
-    } else {
-      setAssignee(currentUser?._id || currentUser?.id || "");
-    }
+    // Always keep the previous assignee, even for staff members
+    setAssignee((prevLead.assgin as any)?._id || prevLead.assgin || "");
     setOrderStatus(Boolean(prevLead.orderStatus));
 
     if (prevLead.products && prevLead.products.length > 0) {
