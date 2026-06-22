@@ -50,6 +50,9 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
   const [status, setStatus] = useState("");
   const [statusTwo, setStatusTwo] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [age, setAge] = useState<number | "">("");
+  const [gender, setGender] = useState("");
+  const [address, setAddress] = useState("");
   const [assignee, setAssignee] = useState("");
   const [orderStatus, setOrderStatus] = useState(false);
   const [reminder, setReminder] = useState("");
@@ -104,6 +107,9 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
           setStatus(fetchedData.statusId || fetchedData.status?._id || fetchedData.status || "");
           setStatusTwo(fetchedData.reasonCallId || fetchedData.reason_call?._id || fetchedData.reason_call || "");
           setNoteText(fetchedData.note || "");
+          setAge(fetchedData.age || "");
+          setGender(fetchedData.gender || "");
+          setAddress(fetchedData.address || "");
           setAssignee(fetchedData.assginId || fetchedData.assgin?._id || fetchedData.assgin || "");
           setReminder(fetchedData.reminderDate || fetchedData.reminder || "");
           const isOrder = Boolean(fetchedData.orderStatus) && fetchedData.orderStatus !== "false";
@@ -139,6 +145,9 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
         setStatus(defaultStatus || statusesOptions[0]?._id || statusesOptions[0]?.id || "");
         setStatusTwo(reasonCallOptions[0]?._id || reasonCallOptions[0]?.id || "");
         setNoteText("");
+        setAge("");
+        setGender("");
+        setAddress("");
         setReminder("");
         setOrderStatus(false);
         setPaymentType("COD");
@@ -174,6 +183,9 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
             setStatus((prevLead.status as any)?._id || prevLead.status || "");
             setStatusTwo((prevLead.reason_call as any)?._id || prevLead.reason_call || "");
             setNoteText(prevLead.note || "");
+            setAge(prevLead.age || "");
+            setGender(prevLead.gender || "");
+            setAddress(prevLead.address || "");
 
             // Assign Staff logic: Admin can see previous staff, Staff is forced to themselves
             if (isAdmin) {
@@ -202,6 +214,9 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
             setStatus(defaultStatus || statusesOptions[0]?._id || statusesOptions[0]?.id || "");
             setStatusTwo(reasonCallOptions[0]?._id || reasonCallOptions[0]?.id || "");
             setNoteText("");
+            setAge("");
+            setGender("");
+            setAddress("");
             setOrderStatus(false);
             setModalSelectedProducts([]);
             if (!isAdmin && currentUser) {
@@ -213,6 +228,9 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
           setStatus(defaultStatus || statusesOptions[0]?._id || statusesOptions[0]?.id || "");
           setStatusTwo(reasonCallOptions[0]?._id || reasonCallOptions[0]?.id || "");
           setNoteText("");
+          setAge("");
+          setGender("");
+          setAddress("");
           setOrderStatus(false);
           setModalSelectedProducts([]);
           if (!isAdmin && currentUser) {
@@ -227,6 +245,9 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       setStatus(defaultStatus || statusesOptions[0]?._id || statusesOptions[0]?.id || "");
       setStatusTwo(reasonCallOptions[0]?._id || reasonCallOptions[0]?.id || "");
       setNoteText("");
+      setAge("");
+      setGender("");
+      setAddress("");
       setOrderStatus(false);
       setModalSelectedProducts([]);
       if (!isAdmin && currentUser) {
@@ -328,6 +349,9 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       status: status,
       reason_call: statusTwo,
       note: noteText,
+      age: age ? Number(age) : undefined,
+      gender: gender || undefined,
+      address: address || undefined,
       reminder: reminder,
       orderStatus: orderStatus,
       paymentType: orderStatus ? paymentType : undefined,
@@ -380,33 +404,11 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <Select
+            <Input
               label="Name"
               value={name}
-              onChange={(e) => {
-                const selVal = e.target.value;
-                setName(selVal);
-
-                const selected = customers.find(c => c.name === selVal);
-                if (selected?.phone_number) {
-                  const safePhone = selected.phone_number.replace(/\D/g, "").slice(0, 10);
-                  setPhone(safePhone);
-                } else {
-                  setPhone("");
-                  // Reset form if customer has no phone
-                  setIsRepeatMode(false);
-                  setStatus(defaultStatus || statusesOptions[0]?._id || statusesOptions[0]?.id || "");
-                  setStatusTwo(reasonCallOptions[0]?._id || reasonCallOptions[0]?.id || "");
-                  setNoteText("");
-                  setOrderStatus(false);
-                  setModalSelectedProducts([]);
-                  if (!isAdmin && currentUser) {
-                    setAssignee(currentUser?._id || currentUser?.id || "");
-                  }
-                }
-              }}
-              allowCustom={true}
-              options={customers.map(c => ({ value: c.name, label: c.name }))}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter Name"
             />
           </div>
           <div>
@@ -472,6 +474,38 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
             ]}
           />
           <Input label="Note" value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Enter Note" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Age"
+            type="number"
+            value={age === "" ? "" : String(age)}
+            onChange={(e) => setAge(e.target.value === "" ? "" : Number(e.target.value))}
+            placeholder="Age"
+          />
+          <Select
+            label="Gender"
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+            options={[
+              { value: "", label: "Select Gender" },
+              { value: "Male", label: "Male" },
+              { value: "Female", label: "Female" },
+              { value: "Other", label: "Other" }
+            ]}
+          />
+        </div>
+
+        <div className="w-full flex flex-col gap-1.5 text-left">
+          <label className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wider flex gap-1">Address</label>
+          <textarea
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Enter full address"
+            rows={3}
+            className="w-full px-4 py-2.5 text-base bg-card-bg border border-border-ui text-text-primary rounded-lg transition-all duration-200 outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal/30 placeholder:text-text-secondary/50 resize-y"
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
