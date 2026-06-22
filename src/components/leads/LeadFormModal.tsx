@@ -183,7 +183,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
             setStatus((prevLead.status as any)?._id || prevLead.status || "");
             setStatusTwo((prevLead.reason_call as any)?._id || prevLead.reason_call || "");
             setNoteText(prevLead.note || "");
-            setAge(prevLead.age || "");
+            setAge(prevLead.age ? Number(prevLead.age) : "");
             setGender(prevLead.gender || "");
             setAddress(prevLead.address || "");
 

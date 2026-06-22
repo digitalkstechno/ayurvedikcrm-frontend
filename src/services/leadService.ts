@@ -5,6 +5,9 @@ export interface Lead {
   _id?: string;
   name: string;
   phone_number: string;
+  age?: number | string;
+  gender?: string;
+  address?: string;
   product?: string;
   amount?: number;
   quantity?: number;
