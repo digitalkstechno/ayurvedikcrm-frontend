@@ -528,13 +528,13 @@ export default function LeadListPage() {
       header: "Note",
       sortable: false,
       render: (_, row) => (
-        <button
-          onClick={() => openNoteModal(row)}
-          className="p-2 text-text-secondary hover:text-primary-teal hover:bg-primary-teal/5 rounded-lg transition-all inline-flex items-center justify-center"
+        <div 
+          className="max-w-[150px] truncate cursor-pointer text-text-secondary hover:text-primary-teal hover:bg-primary-teal/5 p-1.5 rounded-lg transition-all" 
           title={row.note || "No note"}
+          onClick={() => openNoteModal(row)}
         >
-          <FiFileText className="w-5 h-5" />
-        </button>
+          {row.note || "-"}
+        </div>
       )
     },
     {

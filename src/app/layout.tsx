@@ -33,7 +33,7 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground transition-all duration-300 font-nunito">
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground transition-all duration-300 font-nunito">
         <NextTopLoader
           color="#0F766E"
           initialPosition={0.08}

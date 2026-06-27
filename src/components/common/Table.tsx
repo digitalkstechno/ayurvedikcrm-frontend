@@ -123,7 +123,6 @@ export function Table<T extends Record<string, any>>({
       if (searchTimeout.current) clearTimeout(searchTimeout.current);
       searchTimeout.current = setTimeout(() => {
         onSearchChange(value);
-        if (serverSide && onPageChange) onPageChange(1, activeLimit);
       }, 400);
     }
     
