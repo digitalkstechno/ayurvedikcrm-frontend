@@ -26,6 +26,7 @@ export default function KanbanListPage() {
 
   const [columnPages, setColumnPages] = useState<Record<string, number>>({});
   const [hasMore, setHasMore] = useState<Record<string, boolean>>({});
+  const [columnTotals, setColumnTotals] = useState<Record<string, number>>({});
   const [isFetchingColumn, setIsFetchingColumn] = useState<Record<string, boolean>>({});
 
   // Drag and Drop State for Columns
@@ -68,6 +69,7 @@ export default function KanbanListPage() {
 
         const initialPages: Record<string, number> = {};
         const initialHasMore: Record<string, boolean> = {};
+        const initialTotals: Record<string, number> = {};
         let allLeads: any[] = [];
 
         await Promise.all(statusesRes.data.map(async (stage: any) => {
@@ -77,11 +79,13 @@ export default function KanbanListPage() {
           allLeads = [...allLeads, ...mapped];
           initialPages[stageId] = 1;
           initialHasMore[stageId] = res.data.length === 10;
+          initialTotals[stageId] = res.total || 0;
         }));
 
         setLeads(allLeads);
         setColumnPages(initialPages);
         setHasMore(initialHasMore);
+        setColumnTotals(initialTotals);
       } catch (err) {
         console.error(err);
       } finally {
@@ -157,8 +161,23 @@ export default function KanbanListPage() {
       return;
     }
     if (draggedLeadId) {
+      const leadToMove = leads.find(l => l.id === draggedLeadId);
+      const oldStatusName = leadToMove?.statusName;
+      const oldStatusObj = statuses.find(s => s.name === oldStatusName);
+
       // Optimistic update locally
       updateLeadLocally(draggedLeadId, { statusName: statusObj.name });
+      
+      setColumnTotals(prev => {
+        const next = { ...prev };
+        if (oldStatusObj) {
+           const oldId = oldStatusObj._id || oldStatusObj.id;
+           next[oldId] = Math.max(0, (next[oldId] || 0) - 1);
+        }
+        const newId = statusObj._id || statusObj.id;
+        next[newId] = (next[newId] || 0) + 1;
+        return next;
+      });
       
       try {
         await updateLeadApi(draggedLeadId, { status: statusObj._id || statusObj.id });
@@ -310,7 +329,7 @@ export default function KanbanListPage() {
                     </button>
                   )}
                   <span className="text-xs font-bold px-2.5 py-1 bg-background text-[#1f2f3e] rounded-lg border border-border-ui">
-                    {stageLeads.length}
+                    {columnTotals[stage._id || stage.id] !== undefined ? columnTotals[stage._id || stage.id] : stageLeads.length}
                   </span>
                 </div>
               </div>

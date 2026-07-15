@@ -50,6 +50,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
   const [status, setStatus] = useState("");
   const [statusTwo, setStatusTwo] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [remarkText, setRemarkText] = useState("");
   const [age, setAge] = useState<number | "">("");
   const [gender, setGender] = useState("");
   const [address, setAddress] = useState("");
@@ -107,6 +108,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
           setStatus(fetchedData.statusId || fetchedData.status?._id || fetchedData.status || "");
           setStatusTwo(fetchedData.reasonCallId || fetchedData.reason_call?._id || fetchedData.reason_call || "");
           setNoteText(fetchedData.note || "");
+          setRemarkText(fetchedData.remark || "");
           setAge(fetchedData.age || "");
           setGender(fetchedData.gender || "");
           setAddress(fetchedData.address || "");
@@ -145,6 +147,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
         setStatus(defaultStatus || statusesOptions[0]?._id || statusesOptions[0]?.id || "");
         setStatusTwo(reasonCallOptions[0]?._id || reasonCallOptions[0]?.id || "");
         setNoteText("");
+        setRemarkText("");
         setAge("");
         setGender("");
         setAddress("");
@@ -183,6 +186,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
             setStatus((prevLead.status as any)?._id || prevLead.status || "");
             setStatusTwo((prevLead.reason_call as any)?._id || prevLead.reason_call || "");
             setNoteText(prevLead.note || "");
+            setRemarkText(prevLead.remark || "");
             setAge(prevLead.age ? Number(prevLead.age) : "");
             setGender(prevLead.gender || "");
             setAddress(prevLead.address || "");
@@ -214,6 +218,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
             setStatus(defaultStatus || statusesOptions[0]?._id || statusesOptions[0]?.id || "");
             setStatusTwo(reasonCallOptions[0]?._id || reasonCallOptions[0]?.id || "");
             setNoteText("");
+            setRemarkText("");
             setAge("");
             setGender("");
             setAddress("");
@@ -228,6 +233,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
           setStatus(defaultStatus || statusesOptions[0]?._id || statusesOptions[0]?.id || "");
           setStatusTwo(reasonCallOptions[0]?._id || reasonCallOptions[0]?.id || "");
           setNoteText("");
+          setRemarkText("");
           setAge("");
           setGender("");
           setAddress("");
@@ -245,6 +251,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       setStatus(defaultStatus || statusesOptions[0]?._id || statusesOptions[0]?.id || "");
       setStatusTwo(reasonCallOptions[0]?._id || reasonCallOptions[0]?.id || "");
       setNoteText("");
+      setRemarkText("");
       setAge("");
       setGender("");
       setAddress("");
@@ -349,6 +356,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       status: status,
       reason_call: statusTwo,
       note: noteText,
+      remark: remarkText,
       age: age ? Number(age) : undefined,
       gender: gender || undefined,
       address: address || undefined,
@@ -494,6 +502,17 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
               { value: "Female", label: "Female" },
               { value: "Other", label: "Other" }
             ]}
+          />
+        </div>
+
+        <div className="w-full flex flex-col gap-1.5 text-left">
+          <label className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wider flex gap-1">Remark</label>
+          <textarea
+            value={remarkText}
+            onChange={(e) => setRemarkText(e.target.value)}
+            placeholder="Enter Remark"
+            rows={3}
+            className="w-full px-4 py-2.5 text-base bg-card-bg border border-border-ui text-text-primary rounded-lg transition-all duration-200 outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal/30 placeholder:text-text-secondary/50 resize-y"
           />
         </div>
 

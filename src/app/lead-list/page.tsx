@@ -16,6 +16,7 @@ export interface Lead {
   name: string;
   phone_number: string;
   product: string;
+  remark: string;
   amount: number;
   quantity: number;
   subtotal: number;
@@ -117,6 +118,7 @@ export default function LeadListPage() {
         reason_call: l.reason_call?.name || l.reason_call || "",
         reasonCallId: l.reason_call?._id || l.reason_call || "",
         note: l.note || "",
+        remark: l.remark || "",
         reminderDate: l.reminder || "",
         products: l.products || []
       }));
@@ -464,7 +466,18 @@ export default function LeadListPage() {
     { key: "id", header: "No", render: (_, __, i) => i + 1, sortable: false },
     { key: "name", header: "Customer Name", render: (val) => <span className="uppercase">{val || "-"}</span> },
     { key: "phone_number", header: "Phone Number" },
-    { key: "product", header: "Product Name" },
+    { 
+      key: "remark", 
+      header: "Remark", 
+      render: (_, row) => (
+        <div 
+          className="max-w-[150px] truncate cursor-pointer text-text-secondary hover:text-primary-teal hover:bg-primary-teal/5 p-1.5 rounded-lg transition-all" 
+          title={row.remark || "No remark"}
+        >
+          {row.remark || "-"}
+        </div>
+      )
+    },
     { key: "subtotal", header: "Total", render: (val) => `₹${val}` },
     { key: "assgin", header: "Assign By", render: (val) => <span className="uppercase">{val}</span> },
     { key: "date", header: "Date" },
