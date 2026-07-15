@@ -17,6 +17,7 @@ export interface Lead {
   status?: any;
   reason_call?: any;
   note?: string;
+  remark?: string;
   reminder?: string;
   orderStatus?: boolean;
   isRepeat?: boolean;
