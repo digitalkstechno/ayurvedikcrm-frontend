@@ -187,7 +187,8 @@ export default function LeadListPage() {
       return l;
     }));
     try {
-      await updateLeadApi(id, updated);
+      const { statusId, reasonCallId, ...apiPayload } = updated as any;
+      await updateLeadApi(id, apiPayload);
       toast.success("Lead updated successfully!");
     } catch (err: any) {
       loadLeadsData();
@@ -423,7 +424,11 @@ export default function LeadListPage() {
         transactionId,
         status: "Dispatched"
       } as any);
-      await updateLeadApi(activeLead.id, { orderStatus: true });
+        const orderDoneStatus = statuses.find(s => s.name?.trim().toLowerCase() === "order done");
+        await updateLeadApi(activeLead.id, { 
+          orderStatus: true,
+          ...(orderDoneStatus ? { status: orderDoneStatus._id || orderDoneStatus.id } : {})
+        });
       toast.success(`Successfully converted ${activeLead.name || "Unknown"} to order!`);
       setConvertModalOpen(false);
       loadLeadsData();
@@ -492,7 +497,7 @@ export default function LeadListPage() {
           <div className="w-[130px]">
             <Select
               value={(row as any).statusId || val || ""}
-              onChange={(e) => updateLead(row.id, { status: e.target.value as string })}
+              onChange={(e) => updateLead(row.id, { status: e.target.value as string, statusId: e.target.value as string } as any)}
               options={statuses.map(s => ({ value: s._id || s.id, label: s.name }))}
               placeholder="Status"
               menuPortalTarget={true}
@@ -508,7 +513,7 @@ export default function LeadListPage() {
         <div className="w-[160px]">
           <Select
             value={(row as any).reasonCallId || val || ""}
-            onChange={(e) => updateLead(row.id, { reason_call: e.target.value as string })}
+            onChange={(e) => updateLead(row.id, { reason_call: e.target.value as string, reasonCallId: e.target.value as string } as any)}
             options={reasonsOptions.map(r => ({ value: r._id || r.id, label: r.name }))}
             placeholder="Select Reason"
             menuPortalTarget={true}

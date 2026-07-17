@@ -50,6 +50,7 @@ export const Select: React.FC<SelectProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const generatedId = useId();
   const [dropdownRect, setDropdownRect] = useState<DOMRect | null>(null);
 
@@ -92,7 +93,11 @@ export const Select: React.FC<SelectProps> = ({
   // Handle click outside to close dropdown and check position
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(target))
+      ) {
         setIsOpen(false);
       }
     };
@@ -169,11 +174,20 @@ export const Select: React.FC<SelectProps> = ({
   };
 
   const toggleDropdown = () => {
-    if (!isDisabled) setIsOpen(!isOpen);
+    if (!isDisabled) {
+      if (!isOpen && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setDropdownRect(rect);
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setOpenUpwards(spaceBelow < 250 && rect.top > 250);
+      }
+      setIsOpen(!isOpen);
+    }
   };
 
   const dropdownMenu = isOpen && (
     <div 
+      ref={dropdownRef}
       className={`absolute z-[99999] w-full bg-white border border-border-ui rounded-lg shadow-xl overflow-hidden animate-in fade-in duration-200 ${!menuPortalTarget ? (openUpwards ? "bottom-full mb-1.5 slide-in-from-bottom-2" : "top-full mt-1.5 slide-in-from-top-2") : ""}`}
       style={
         menuPortalTarget && dropdownRect

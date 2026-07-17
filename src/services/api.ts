@@ -22,6 +22,21 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('wrixty_token');
+        localStorage.removeItem('wrixty_authenticated');
+        localStorage.removeItem('wrixty_authenticated_user');
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 const pendingGetRequests = new Map();
 
 // Helper: GET /endpoint
