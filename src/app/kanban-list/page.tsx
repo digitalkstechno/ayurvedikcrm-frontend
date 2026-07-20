@@ -13,6 +13,7 @@ import { FiEdit, FiPlus } from "react-icons/fi";
 import { Select } from "../../components/common/Select";
 import { DateRangePicker } from "../../components/common/DateRangePicker";
 import { getAuthenticatedUser } from "../../utils/authUtils";
+import { Loader } from "../../components/common/Loader";
 
 export default function KanbanListPage() {
   const { hasPermission } = usePermission();
@@ -459,7 +460,12 @@ export default function KanbanListPage() {
       </div>
 
       {/* Board Scrollable container */}
-      <div className="flex gap-4 overflow-x-auto pb-4 items-start select-none">
+      {isLoading ? (
+        <div className="flex justify-center items-center h-[50vh] w-full">
+          <Loader size="lg" className="text-primary-teal" />
+        </div>
+      ) : (
+        <div className="flex gap-4 overflow-x-auto pb-4 items-start select-none">
         {statuses.filter((stage) => {
           if (filterStatus.includes("all")) return true;
           return filterStatus.includes(stage._id || stage.id);
@@ -613,7 +619,7 @@ export default function KanbanListPage() {
                 )}
                 {isFetchingColumn[stage.id || stage._id] && (
                   <div className="flex items-center justify-center p-2">
-                    <div className="w-5 h-5 border-2 border-primary-teal border-t-transparent rounded-full animate-spin"></div>
+                    <Loader size="sm" className="text-primary-teal" />
                   </div>
                 )}
               </div>
@@ -621,6 +627,7 @@ export default function KanbanListPage() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }
