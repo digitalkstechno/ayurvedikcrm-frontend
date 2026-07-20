@@ -278,7 +278,7 @@ export default function LeadListPage() {
     e.preventDefault();
     if (!activeLead) return;
     updateLead(activeLead.id, { note: noteText });
-    toast.success("Note saved successfully!");
+    toast.success("Inquiry Source saved successfully!");
     setNoteModalOpen(false);
   };
 
@@ -543,12 +543,12 @@ export default function LeadListPage() {
     },
     {
       key: "note",
-      header: "Note",
+      header: "Inquiry Source",
       sortable: false,
       render: (_, row) => (
         <div 
           className="max-w-[150px] truncate cursor-pointer text-text-secondary hover:text-primary-teal hover:bg-primary-teal/5 p-1.5 rounded-lg transition-all" 
-          title={row.note || "No note"}
+          title={row.note || "No inquiry source"}
           onClick={() => openNoteModal(row)}
         >
           {row.note || "-"}
@@ -999,17 +999,17 @@ export default function LeadListPage() {
         </form>
       </Modal>
 
-      <Modal isOpen={noteModalOpen} onClose={() => setNoteModalOpen(false)} title="Lead Note">
+      <Modal isOpen={noteModalOpen} onClose={() => setNoteModalOpen(false)} title="Inquiry Source">
         <form onSubmit={handleSaveNote} className="space-y-4">
           <div className="w-full flex flex-col gap-1.5 text-left">
             <label className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">
-              Add Note
+              Add Inquiry Source
             </label>
             <textarea
               className="w-full px-4 py-2.5 text-sm bg-card-bg border border-border-ui text-text-primary rounded-lg transition-all duration-200 outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal/30 placeholder:text-text-secondary/50 min-h-[100px] resize-y"
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
-              placeholder="Enter your note here..."
+              placeholder="Enter your inquiry source here..."
             />
           </div>
           <Button
@@ -1017,7 +1017,7 @@ export default function LeadListPage() {
             variant="primary"
             fullWidth
           >
-            Save Note
+            Save Inquiry Source
           </Button>
           {activeLead?.note && (
             <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg mt-4">

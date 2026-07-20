@@ -102,15 +102,16 @@ export default function ActivityLogPage() {
         ? "N/A"
         : dateObj.toLocaleDateString("en-IN") + " " + dateObj.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true });
 
-      const leadName = log.lead && typeof log.lead === 'object' && (log.lead as any).customer
-        ? (log.lead as any).customer.name
-        : "N/A";
+      const leadObj = log.lead && typeof log.lead === 'object' ? log.lead as any : null;
+      const leadName = leadObj ? (leadObj.name || (leadObj.customer?.name) || "N/A") : "N/A";
+      const leadPhone = leadObj ? (leadObj.phone_number || (leadObj.customer?.phone_number) || "N/A") : "N/A";
 
       return {
         id: log._id,
         date: formattedDate,
         user: log.user?.name || "System",
         lead: leadName,
+        phone: leadPhone,
         message: log.message
       };
     });
@@ -118,9 +119,10 @@ export default function ActivityLogPage() {
 
   const columns: Column<typeof formattedLogs[0]>[] = [
     { key: "date", header: "Date" },
-    { key: "user", header: "User" },
-    { key: "lead", header: "Lead" },
-    { key: "message", header: "Message" }
+    { key: "user", header: "Changed By" },
+    { key: "lead", header: "Lead Name" },
+    { key: "phone", header: "Number" },
+    { key: "message", header: "Change Details" }
   ];
 
   return (

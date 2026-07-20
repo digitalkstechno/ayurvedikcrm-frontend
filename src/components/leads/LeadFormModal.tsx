@@ -339,6 +339,10 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       toast.warning("Phone number must be exactly 10 digits!");
       return;
     }
+    if (!noteText) {
+      toast.warning("Please enter Inquiry Source!");
+      return;
+    }
 
     setIsLoading(true);
 
@@ -481,7 +485,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
               ).map(u => ({ value: u._id || u.id, label: u.name }))
             ]}
           />
-          <Input label="Note" value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Enter Note" />
+          <Input label="Inquiry Source" required value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Enter Inquiry Source" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -10,6 +10,9 @@ import { fetchProducts } from "../../services/productService";
 import { fetchReasonToCalls } from "../../services/reasonToCallService";
 import { Button } from "../../components/common/Button";
 import { FiEdit, FiPlus } from "react-icons/fi";
+import { Select } from "../../components/common/Select";
+import { DateRangePicker } from "../../components/common/DateRangePicker";
+import { getAuthenticatedUser } from "../../utils/authUtils";
 
 export default function KanbanListPage() {
   const { hasPermission } = usePermission();
@@ -19,6 +22,22 @@ export default function KanbanListPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [reasonsOptions, setReasonsOptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const getTodayString = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const [startDate, setStartDate] = useState<string | null>(getTodayString());
+  const [endDate, setEndDate] = useState<string | null>(getTodayString());
+  
+  const [filterProduct, setFilterProduct] = useState<string[]>(["all"]);
+  const [filterAssignee, setFilterAssignee] = useState<string[]>(["all"]);
+  const [filterStatus, setFilterStatus] = useState<string[]>(["all"]);
+  const [filterReason, setFilterReason] = useState<string[]>(["all"]);
+  
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(true);
 
   const [leadFormModalOpen, setLeadFormModalOpen] = useState(false);
   const [activeLead, setActiveLead] = useState<any>(null);
@@ -52,8 +71,13 @@ export default function KanbanListPage() {
     };
   };
 
+  const initFetchRef = React.useRef(false);
+
   useEffect(() => {
-    const loadData = async () => {
+    if (initFetchRef.current) return;
+    initFetchRef.current = true;
+
+    const loadMasterData = async () => {
       try {
         const [statusesRes, usersRes, productsRes, reasonsRes] = await Promise.all([
           fetchStatuses({ page: 1, limit: 100 }),
@@ -64,8 +88,19 @@ export default function KanbanListPage() {
         setUsers(usersRes.data);
         setProducts(productsRes.data);
         setReasonsOptions(reasonsRes.data);
-
         setStatuses(statusesRes.data);
+
+        const user = getAuthenticatedUser();
+        let initialAssigneeFilter = "all";
+        if (user) {
+          setCurrentUser(user);
+          const admin = user?.roles?.some((r: string) => r.toLowerCase().includes('admin'));
+          setIsAdmin(admin);
+          if (!admin) {
+            initialAssigneeFilter = user._id || user.id;
+            setFilterAssignee([initialAssigneeFilter]);
+          }
+        }
 
         const initialPages: Record<string, number> = {};
         const initialHasMore: Record<string, boolean> = {};
@@ -74,7 +109,14 @@ export default function KanbanListPage() {
 
         await Promise.all(statusesRes.data.map(async (stage: any) => {
           const stageId = stage._id || stage.id;
-          const res = await fetchLeads({ page: 1, limit: 10, status: stageId });
+          const res = await fetchLeads({ 
+            page: 1, 
+            limit: 10, 
+            status: stageId,
+            assgin: initialAssigneeFilter === 'all' ? undefined : initialAssigneeFilter,
+            startDate: getTodayString(),
+            endDate: getTodayString()
+          });
           const mapped = res.data.map((l: any) => mapLead(l, usersRes.data));
           allLeads = [...allLeads, ...mapped];
           initialPages[stageId] = 1;
@@ -92,14 +134,77 @@ export default function KanbanListPage() {
         setIsLoading(false);
       }
     };
-    loadData();
+    loadMasterData();
+  }, []);
+
+  const applyFilters = async (overrideAssignee?: string, overrideDates?: { start: string | null, end: string | null }) => {
+    setIsLoading(true);
+    try {
+      const assigneeFilter = overrideAssignee === 'all' ? undefined : (overrideAssignee || (filterAssignee.includes('all') ? undefined : filterAssignee.join(',')));
+      const startToUse = overrideDates !== undefined ? overrideDates.start : startDate;
+      const endToUse = overrideDates !== undefined ? overrideDates.end : endDate;
+      const productFilter = filterProduct.includes('all') ? undefined : filterProduct.join(',');
+      const reasonFilter = filterReason.includes('all') ? undefined : filterReason.join(',');
+
+      const initialPages: Record<string, number> = {};
+      const initialHasMore: Record<string, boolean> = {};
+      const initialTotals: Record<string, number> = {};
+      let allLeads: any[] = [];
+
+      await Promise.all(statuses.map(async (stage: any) => {
+        const stageId = stage._id || stage.id;
+        const res = await fetchLeads({ 
+          page: 1, 
+          limit: 10, 
+          status: stageId,
+          product: productFilter,
+          assgin: assigneeFilter,
+          reason_call: reasonFilter,
+          startDate: startToUse || undefined,
+          endDate: endToUse || undefined
+        });
+        const mapped = res.data.map((l: any) => mapLead(l, users));
+        allLeads = [...allLeads, ...mapped];
+        initialPages[stageId] = 1;
+        initialHasMore[stageId] = res.data.length === 10;
+        initialTotals[stageId] = res.total || 0;
+      }));
+
+      setLeads(allLeads);
+      setColumnPages(initialPages);
+      setHasMore(initialHasMore);
+      setColumnTotals(initialTotals);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (initFetchRef.current && !leadFormModalOpen) {
+      applyFilters();
+    }
   }, [leadFormModalOpen]);
 
   const loadMoreLeads = async (stageId: string) => {
     setIsFetchingColumn(prev => ({ ...prev, [stageId]: true }));
     try {
+      const assigneeFilter = filterAssignee.includes('all') ? undefined : filterAssignee.join(',');
+      const productFilter = filterProduct.includes('all') ? undefined : filterProduct.join(',');
+      const reasonFilter = filterReason.includes('all') ? undefined : filterReason.join(',');
+
       const nextPage = (columnPages[stageId] || 1) + 1;
-      const res = await fetchLeads({ page: nextPage, limit: 10, status: stageId });
+      const res = await fetchLeads({ 
+        page: nextPage, 
+        limit: 10, 
+        status: stageId,
+        product: productFilter,
+        assgin: assigneeFilter,
+        reason_call: reasonFilter,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined
+      });
       
       const mapped = res.data.map((l: any) => mapLead(l, users));
 
@@ -257,20 +362,108 @@ export default function KanbanListPage() {
             Quickly advance leads across stages visually via drag & drop
           </p>
         </div>
-        {hasPermission("Lead-add") && (
+        <div className="flex items-center gap-4">
+          <DateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onChange={(start, end) => {
+              setStartDate(start);
+              setEndDate(end);
+              applyFilters(undefined, { start, end });
+            }}
+          />
+          {hasPermission("Lead-add") && (
+            <Button
+              onClick={() => { setActiveLead(null); setDefaultStatusId(""); setLeadFormModalOpen(true); }}
+              variant="primary"
+              className="rounded-lg px-6"
+            >
+              Add Lead
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Filter Options */}
+      <div className="flex flex-wrap items-center gap-3 pb-6">
+        <div className="w-full sm:w-auto sm:flex-1 min-w-[160px]">
+          <Select
+            multiple={true}
+            value={filterProduct}
+            onChange={(e) => setFilterProduct(e.target.value as unknown as string[])}
+            options={[
+              { value: "all", label: "Select Product" },
+              ...products.map(p => ({ value: p._id || p.id, label: p.name }))
+            ]}
+          />
+        </div>
+        <div className="w-full sm:w-auto sm:flex-1 min-w-[160px]">
+          <Select
+            multiple={true}
+            value={filterAssignee}
+            onChange={(e) => setFilterAssignee(e.target.value as unknown as string[])}
+            disabled={!isAdmin}
+            options={[
+              { value: "all", label: "Select Assign" },
+              ...(isAdmin
+                ? users
+                : users.filter(u => u._id === currentUser?._id || u.id === currentUser?._id)
+              ).map(u => ({ value: u._id || u.id, label: u.name }))
+            ]}
+          />
+        </div>
+        <div className="w-full sm:w-auto sm:flex-1 min-w-[160px]">
+          <Select
+            multiple={true}
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as unknown as string[])}
+            options={[
+              { value: "all", label: "Select Status" },
+              ...statuses.map(s => ({ value: s._id || s.id, label: s.name }))
+            ]}
+          />
+        </div>
+        <div className="w-full sm:w-auto sm:flex-1 min-w-[160px]">
+          <Select
+            multiple={true}
+            value={filterReason}
+            onChange={(e) => setFilterReason(e.target.value as unknown as string[])}
+            options={[
+              { value: "all", label: "Reason Call" },
+              ...reasonsOptions.map(r => ({ value: r._id || r.id, label: r.name }))
+            ]}
+          />
+        </div>
+        <div className="flex items-center gap-2">
           <Button
-            onClick={() => { setActiveLead(null); setDefaultStatusId(""); setLeadFormModalOpen(true); }}
             variant="primary"
-            className="rounded-lg px-6"
+            className="rounded-lg"
+            onClick={() => applyFilters()}
           >
-            Add Lead
+            Apply Filter
           </Button>
-        )}
+          <Button
+            variant="outline"
+            className="rounded-lg"
+            onClick={() => {
+              setFilterProduct(["all"]);
+              if (isAdmin) setFilterAssignee(["all"]);
+              setFilterStatus(["all"]);
+              setFilterReason(["all"]);
+              setTimeout(() => applyFilters(isAdmin ? "all" : (currentUser?._id || currentUser?.id)), 0);
+            }}
+          >
+            Clear Filter
+          </Button>
+        </div>
       </div>
 
       {/* Board Scrollable container */}
       <div className="flex gap-4 overflow-x-auto pb-4 items-start select-none">
-        {statuses.map((stage) => {
+        {statuses.filter((stage) => {
+          if (filterStatus.includes("all")) return true;
+          return filterStatus.includes(stage._id || stage.id);
+        }).map((stage) => {
           const stageLeads = activeLeads.filter(l => l.statusName === stage.name);
           const stageColor = stage.color || "#0F766E";
           
