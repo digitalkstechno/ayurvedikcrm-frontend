@@ -14,6 +14,11 @@ export const loginUser = async (payload: { email: string; password?: string }): 
   return data;
 };
 
+export const loginAsUser = async (userId: string): Promise<AuthResponse> => {
+  const { data } = await apiPost(endPointApi.authLoginAs, { userId });
+  return data;
+};
+
 export const forgotPassword = async (email: string): Promise<{ message: string; resetUrlForTesting?: string }> => {
   const { data } = await apiPost(endPointApi.authForgotPassword, { email });
   return data;

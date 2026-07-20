@@ -259,32 +259,25 @@ export default function UsersPage() {
 
   const handleLoginAs = async (user: User) => {
     try {
-      const rolesRes = await fetchRoles({ page: 1, limit: 100 });
-      let permissions: Record<string, boolean> = {};
-      (user.roles || []).forEach(roleName => {
-        const foundRole = rolesRes.data.find(r => r.name === roleName);
-        if (foundRole && foundRole.permissions) {
-          permissions = { ...permissions, ...foundRole.permissions };
-        }
-      });
-      setAuthData({
-        name: user.name,
-        email: user.email,
-        roles: user.roles,
-        permissions: permissions
-      });
-      toast.success(`Logged in as ${user.name}`);
+      const { loginAsUser } = await import("../../services/authService");
+      const authData = await loginAsUser(user._id);
+
+      localStorage.setItem("wrixty_authenticated", "true");
+      localStorage.setItem("wrixty_token", authData.token);
+      localStorage.setItem("wrixty_authenticated_user", JSON.stringify({
+        _id: authData._id,
+        id: authData._id,
+        name: authData.name,
+        email: authData.email,
+        roles: authData.roles,
+        permissions: authData.permissions
+      }));
+
+      toast.success(`Logged in as ${authData.name}`);
       window.open("/dashboard", "_blank");
     } catch (err) {
-      console.error("Login-as permissions load failed:", err);
-      setAuthData({
-        name: user.name,
-        email: user.email,
-        roles: user.roles,
-        permissions: {}
-      });
-      toast.success(`Logged in as ${user.name}`);
-      window.open("/dashboard", "_blank");
+      console.error("Login-as failed:", err);
+      toast.error("Failed to login as user.");
     }
   };
 
