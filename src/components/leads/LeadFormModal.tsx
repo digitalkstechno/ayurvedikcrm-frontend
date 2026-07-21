@@ -485,7 +485,16 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
               ).map(u => ({ value: u._id || u.id, label: u.name }))
             ]}
           />
-          <Input label="Inquiry Source" required value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Enter Inquiry Source" />
+          <Select
+            label="Inquiry Source"
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            options={[
+              { value: "", label: "Select Inquiry Source" },
+              { value: "Whatsapp Message", label: "Whatsapp Message" },
+              { value: "Call", label: "Call" }
+            ]}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
