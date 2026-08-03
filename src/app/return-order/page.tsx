@@ -391,14 +391,14 @@ export default function ReturnOrderPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white  p-6   space-y-6">
+      <div className="bg-white p-6 space-y-6">
 
         {/* Top Header Row with Dates and Add Button */}
-        <div className="flex flex-wrap items-center justify-between border-b border-zinc-100  pb-4 gap-4">
+        <div className="flex flex-wrap items-center justify-between border-b border-zinc-100 pb-4 gap-4">
           <h2 className="text-xl font-bold text-zinc-800">
             Return Order List
           </h2>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-end gap-6">
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Order Date :</span>
               <DateRangePicker
@@ -423,17 +423,17 @@ export default function ReturnOrderPage() {
                 }}
               />
             </div>
-          </div>
 
-          {hasPermission("Return-order-add") && (
-            <Button
-              variant="primary"
-              className="bg-teal-800 hover:bg-teal-700 focus:ring-teal-800 whitespace-nowrap"
-              onClick={openAddModal}
-            >
-              Add Return Order
-            </Button>
-          )}
+            {hasPermission("Return-order-add") && (
+              <Button
+                variant="primary"
+                className="bg-teal-800 hover:bg-teal-700 focus:ring-teal-800 whitespace-nowrap"
+                onClick={openAddModal}
+              >
+                Add Return Order
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Filters Row */}
@@ -512,7 +512,7 @@ export default function ReturnOrderPage() {
       </div>
 
       {/* Add/Edit Return Order Modal */}
-      <Modal isOpen={addOpen} onClose={() => setAddOpen(false)} title={activeOrder ? "Edit Return Order" : "Add Return Order"} sizeClass="max-w-5xl">
+      <Modal isOpen={addOpen} onClose={() => setAddOpen(false)} title={activeOrder ? "Edit Return Order" : "Return Order"} sizeClass="max-w-5xl">
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1">

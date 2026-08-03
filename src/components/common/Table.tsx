@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { ChevronLeft, ChevronRight, FirstPage, LastPage, KeyboardArrowLeft, KeyboardArrowRight, KeyboardArrowDown } from "@mui/icons-material";
+import { ChevronLeft, ChevronRight, FirstPage, LastPage, KeyboardArrowLeft, KeyboardArrowRight, KeyboardArrowDown, Close } from "@mui/icons-material";
 
 export interface Column<T> {
   key: string;
@@ -168,14 +168,24 @@ export function Table<T extends Record<string, any>>({
       {/* Search Header */}
       {searchable && (
         <div className="pb-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
-          <div className="relative w-full sm:max-w-xs">
+          <div className="relative w-full sm:max-w-xs flex items-center">
             <input
               type="text"
               placeholder={searchPlaceholder}
               value={internalSearch}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full px-4 py-2 text-sm bg-white border border-border-ui text-text-primary rounded-lg outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal/20"
+              className="w-full pl-4 pr-10 py-2 text-sm bg-white border border-border-ui text-text-primary rounded-lg outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal/20"
             />
+            {internalSearch && (
+              <button
+                onClick={() => handleSearchChange("")}
+                className="absolute right-3 text-text-secondary hover:text-text-primary focus:outline-none transition-colors"
+                type="button"
+                title="Clear search"
+              >
+                <Close style={{ fontSize: 18 }} />
+              </button>
+            )}
           </div>
           <div className="text-sm text-text-secondary">
             Showing {paginatedData.length} of {filteredData.length} records

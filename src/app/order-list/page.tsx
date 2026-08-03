@@ -35,6 +35,7 @@ export interface Order {
   assginTo: string;
   assginToId?: string;
   transactionId: string;
+  delivery_no?: string;
   returnType?: string;
   repartOrderTotal?: number;
   status: string; // Converted, Dispatched, Delivered, Returned
@@ -63,6 +64,10 @@ export default function OrderListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const [filterProduct, setFilterProduct] = useState<string[]>(["all"]);
+  const [filterAssignee, setFilterAssignee] = useState<string[]>(["all"]);
+  const [filterCourier, setFilterCourier] = useState<string[]>(["all"]);
 
   const getTodayString = () => {
     const d = new Date();
@@ -109,6 +114,7 @@ export default function OrderListPage() {
         assginTo: o.assginTo?.name || o.assginTo || "",
         assginToId: typeof o.assginTo === 'object' ? (o.assginTo?._id || o.assginTo?.id || "") : (o.assginTo || ""),
         transactionId: o.transactionId || "",
+        delivery_no: o.delivery_no || "",
         status: o.status || "Dispatched",
         // Store raw products array for edit modal
         _products: o.products || []
@@ -158,9 +164,18 @@ export default function OrderListPage() {
       }
     }
 
-    loadMasterData();
+    loadMasterData().then(() => {
+      setInitialLoaded(true);
+    });
     loadOrdersData(undefined, undefined, initialAssigneeFilter);
   }, []);
+
+  React.useEffect(() => {
+    if (initialLoaded) {
+      setCurrentPage(1);
+      loadOrdersData(undefined, undefined, undefined, 1);
+    }
+  }, [filterProduct, filterAssignee, filterCourier]);
 
   const updateOrder = async (id: string, updated: Partial<Order>) => {
     try {
@@ -207,9 +222,7 @@ export default function OrderListPage() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const [filterProduct, setFilterProduct] = useState<string[]>(["all"]);
-  const [filterAssignee, setFilterAssignee] = useState<string[]>(["all"]);
-  const [filterCourier, setFilterCourier] = useState<string[]>(["all"]);
+
 
   const [isFetchingData, setIsFetchingData] = useState(false);
 
@@ -220,6 +233,7 @@ export default function OrderListPage() {
   const [paymentType, setPaymentType] = useState<"COD" | "Prepaid">("COD");
   const [txnId, setTxnId] = useState("");
   const [courier, setCourier] = useState("");
+  const [deliveryNo, setDeliveryNo] = useState("");
   
   const [modalSelectedProducts, setModalSelectedProducts] = useState<SelectedProductRow[]>([]);
   const [modalProductSelect, setModalProductSelect] = useState("");
@@ -279,6 +293,7 @@ export default function OrderListPage() {
     setPaymentType(order.paymentType === "Prepaid" ? "Prepaid" : "COD");
     setTxnId(order.transactionId || "");
     setCourier(order.courier || "");
+    setDeliveryNo(order.delivery_no || "");
     
     const rawProducts: any[] = order._products || [];
     if (rawProducts.length > 0) {
@@ -318,6 +333,7 @@ export default function OrderListPage() {
       await updateOrder(activeOrder.id, {
         paymentType,
         transactionId: txnId,
+        delivery_no: deliveryNo,
         courier,
         product: modalSelectedProducts.map(p => p.name).join(", "),
         products: modalSelectedProducts.map((p) => ({
@@ -349,6 +365,7 @@ export default function OrderListPage() {
     setPaymentType(order.paymentType === "Prepaid" ? "Prepaid" : "COD");
     setTxnId(order.transactionId || "");
     setCourier(order.courier || couriers[0]?.name || "");
+    setDeliveryNo(order.delivery_no || "");
 
     const rawProducts: any[] = (order as any)._products || [];
     if (rawProducts.length > 0) {
@@ -416,6 +433,7 @@ export default function OrderListPage() {
         courier,
         assginTo: resolvedAssigneeId,
         transactionId: txnId,
+        delivery_no: deliveryNo,
         status: "Dispatched"
       });
       toast.success(`Repeat Order created for ${activeOrder.name}!`);
@@ -554,13 +572,19 @@ export default function OrderListPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Input
           label="Transaction ID"
           value={txnId}
           onChange={(e) => setTxnId(e.target.value)}
           placeholder="e.g. TXN12345"
-          required
+          required={paymentType === 'Prepaid'}
+        />
+        <Input
+          label="Delivery no"
+          value={deliveryNo}
+          onChange={(e) => setDeliveryNo(e.target.value)}
+          placeholder="e.g. DEL12345"
         />
         <Select
           label="Select Courier"
@@ -755,11 +779,14 @@ export default function OrderListPage() {
             </Button>
             <Button variant="outline" className="rounded-lg" onClick={() => {
               setFilterProduct(["all"]);
-              if (isAdmin) setFilterAssignee(["all"]);
               setFilterCourier(["all"]);
               setSearchQuery("");
               setCurrentPage(1);
-              setTimeout(() => loadOrdersData("", undefined, isAdmin ? "all" : (currentUser?._id || currentUser?.id), 1, rowsPerPage), 0);
+              if (isAdmin) {
+                setFilterAssignee(["all"]);
+              } else {
+                setFilterAssignee([currentUser?._id || currentUser?.id]);
+              }
             }}>
               Clear Filter
             </Button>

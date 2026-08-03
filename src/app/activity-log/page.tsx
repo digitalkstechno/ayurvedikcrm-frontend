@@ -20,6 +20,7 @@ export default function ActivityLogPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
   const getTodayString = () => {
     const d = new Date();
@@ -75,6 +76,7 @@ export default function ActivityLogPage() {
       if (searchToUse) params.search = searchToUse;
       const res = await fetchActivityLogs(params);
       setLogs(res.data);
+      setInitialLoaded(true);
       if (res.total !== undefined) {
         setTotalRecords(res.total);
       } else if (res.data) {
@@ -94,6 +96,13 @@ export default function ActivityLogPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
+
+  useEffect(() => {
+    if (initialLoaded) {
+      setCurrentPage(1);
+      loadLogs({ page: 1 });
+    }
+  }, [filterUser, startDate, endDate]);
 
   const formattedLogs = React.useMemo(() => {
     return logs.map((log) => {
@@ -156,8 +165,9 @@ export default function ActivityLogPage() {
           <Button variant="outline" className="rounded-lg" onClick={() => {
             setFilterUser("all");
             setSearchQuery("");
+            setStartDate(getTodayString());
+            setEndDate(getTodayString());
             setCurrentPage(1);
-            loadLogs({ user: "all", search: "", page: 1 });
           }}>
             Clear Filter
           </Button>

@@ -70,6 +70,12 @@ export default function LeadListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const [filterProduct, setFilterProduct] = useState<string[]>(["all"]);
+  const [filterAssignee, setFilterAssignee] = useState<string[]>(["all"]);
+  const [filterStatus, setFilterStatus] = useState<string[]>(["all"]);
+  const [filterReason, setFilterReason] = useState<string[]>(["all"]);
+  const [filterAge, setFilterAge] = useState<string>("all");
 
   const getTodayString = () => {
     const d = new Date();
@@ -98,7 +104,8 @@ export default function LeadListPage() {
         status: filterStatus.includes('all') ? undefined : filterStatus.join(','),
         reason_call: filterReason.includes('all') ? undefined : filterReason.join(','),
         startDate: startToUse || undefined,
-        endDate: endToUse || undefined
+        endDate: endToUse || undefined,
+        age: filterAge !== 'all' ? filterAge : undefined
       });
       const mappedLeads = leadsRes.data.map((l: any) => ({
         ...l,
@@ -170,9 +177,18 @@ export default function LeadListPage() {
       }
     }
 
-    loadMasterData();
+    loadMasterData().then(() => {
+      setInitialLoaded(true);
+    });
     loadLeadsData(initialAssigneeFilter);
   }, []);
+
+  React.useEffect(() => {
+    if (initialLoaded) {
+      setCurrentPage(1);
+      loadLeadsData(undefined, undefined, undefined, 1);
+    }
+  }, [filterProduct, filterAssignee, filterStatus, filterReason, filterAge]);
 
 
   const updateLead = async (id: string, updated: Partial<Lead>) => {
@@ -254,15 +270,13 @@ export default function LeadListPage() {
   const [paymentType, setPaymentType] = useState<"COD" | "Prepaid">("COD");
   const [selectedCourier, setSelectedCourier] = useState("Delhivery");
   const [transactionId, setTransactionId] = useState("");
+  const [deliveryNo, setDeliveryNo] = useState("");
 
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignToUserId, setAssignToUserId] = useState("");
   const [isAssigningLead, setIsAssigningLead] = useState(false);
 
-  const [filterProduct, setFilterProduct] = useState<string[]>(["all"]);
-  const [filterAssignee, setFilterAssignee] = useState<string[]>(["all"]);
-  const [filterStatus, setFilterStatus] = useState<string[]>(["all"]);
-  const [filterReason, setFilterReason] = useState<string[]>(["all"]);
+
 
   const filteredLeads = React.useMemo(() => {
     return leads.filter(l => !l.isDeleted);
@@ -345,6 +359,7 @@ export default function LeadListPage() {
     setPaymentType("COD");
     setSelectedCourier(couriers[0]?.name || "Delhivery");
     setTransactionId("");
+    setDeliveryNo("");
 
     if ((lead as any).products && Array.isArray((lead as any).products)) {
       setConvertSelectedProducts((lead as any).products.map((p: any) => ({
@@ -422,6 +437,7 @@ export default function LeadListPage() {
         courier: selectedCourier,
         assginTo: (activeLead as any).assginId || activeLead.assgin,
         transactionId,
+        delivery_no: deliveryNo,
         status: "Dispatched"
       } as any);
         const orderDoneStatus = statuses.find(s => s.name?.trim().toLowerCase() === "order done");
@@ -450,7 +466,8 @@ export default function LeadListPage() {
         status: filterStatus.includes('all') ? undefined : filterStatus.join(','),
         reason_call: filterReason.includes('all') ? undefined : filterReason.join(','),
         startDate: startDate || undefined,
-        endDate: endDate || undefined
+        endDate: endDate || undefined,
+        age: filterAge !== 'all' ? filterAge : undefined
       });
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
@@ -675,6 +692,20 @@ export default function LeadListPage() {
               ]}
             />
           </div>
+          <div className="w-full sm:w-auto sm:flex-1 min-w-[160px]">
+            <Select
+              value={filterAge}
+              onChange={(e) => setFilterAge(e.target.value as string)}
+              options={[
+                { value: "all", label: "Select Age" },
+                { value: "0-18", label: "0-18 Years" },
+                { value: "19-30", label: "19-30 Years" },
+                { value: "31-45", label: "31-45 Years" },
+                { value: "46-60", label: "46-60 Years" },
+                { value: "61+", label: "61+ Years" }
+              ]}
+            />
+          </div>
 
           <div className="flex items-center gap-2">
             <Button
@@ -689,10 +720,14 @@ export default function LeadListPage() {
               className="rounded-lg"
               onClick={() => {
                 setFilterProduct(["all"]);
-                if (isAdmin) setFilterAssignee(["all"]);
                 setFilterStatus(["all"]);
                 setFilterReason(["all"]);
-                setTimeout(() => loadLeadsData(isAdmin ? "all" : (currentUser?._id || currentUser?.id)), 0);
+                setFilterAge("all");
+                if (isAdmin) {
+                  setFilterAssignee(["all"]);
+                } else {
+                  setFilterAssignee([currentUser?._id || currentUser?.id]);
+                }
               }}
             >
               Clear Filter
@@ -851,13 +886,19 @@ export default function LeadListPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input
               label="Transaction ID"
               value={transactionId || ""}
               onChange={(e) => setTransactionId(e.target.value)}
               placeholder="e.g. TXN12345"
               required={paymentType === 'Prepaid'}
+            />
+            <Input
+              label="Delivery no"
+              value={deliveryNo || ""}
+              onChange={(e) => setDeliveryNo(e.target.value)}
+              placeholder="e.g. DEL12345"
             />
             <Select
               label="Select Courier"

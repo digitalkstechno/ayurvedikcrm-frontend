@@ -36,8 +36,10 @@ export default function KanbanListPage() {
   const [filterAssignee, setFilterAssignee] = useState<string[]>(["all"]);
   const [filterStatus, setFilterStatus] = useState<string[]>(["all"]);
   const [filterReason, setFilterReason] = useState<string[]>(["all"]);
+  const [filterAge, setFilterAge] = useState<string>("all");
   
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const [isAdmin, setIsAdmin] = useState(true);
 
   const [leadFormModalOpen, setLeadFormModalOpen] = useState(false);
@@ -135,7 +137,9 @@ export default function KanbanListPage() {
         setIsLoading(false);
       }
     };
-    loadMasterData();
+    loadMasterData().then(() => {
+      setInitialLoaded(true);
+    });
   }, []);
 
   const applyFilters = async (overrideAssignee?: string, overrideDates?: { start: string | null, end: string | null }) => {
@@ -146,6 +150,8 @@ export default function KanbanListPage() {
       const endToUse = overrideDates !== undefined ? overrideDates.end : endDate;
       const productFilter = filterProduct.includes('all') ? undefined : filterProduct.join(',');
       const reasonFilter = filterReason.includes('all') ? undefined : filterReason.join(',');
+
+      const ageFilter = filterAge !== 'all' ? filterAge : undefined;
 
       const initialPages: Record<string, number> = {};
       const initialHasMore: Record<string, boolean> = {};
@@ -162,8 +168,9 @@ export default function KanbanListPage() {
           assgin: assigneeFilter,
           reason_call: reasonFilter,
           startDate: startToUse || undefined,
-          endDate: endToUse || undefined
-        });
+          endDate: endToUse || undefined,
+          age: ageFilter
+        } as any);
         const mapped = res.data.map((l: any) => mapLead(l, users));
         allLeads = [...allLeads, ...mapped];
         initialPages[stageId] = 1;
@@ -183,10 +190,10 @@ export default function KanbanListPage() {
   };
 
   useEffect(() => {
-    if (initFetchRef.current && !leadFormModalOpen) {
+    if (initialLoaded && !leadFormModalOpen) {
       applyFilters();
     }
-  }, [leadFormModalOpen]);
+  }, [leadFormModalOpen, filterProduct, filterAssignee, filterStatus, filterReason, filterAge]);
 
   const loadMoreLeads = async (stageId: string) => {
     setIsFetchingColumn(prev => ({ ...prev, [stageId]: true }));
@@ -204,8 +211,9 @@ export default function KanbanListPage() {
         assgin: assigneeFilter,
         reason_call: reasonFilter,
         startDate: startDate || undefined,
-        endDate: endDate || undefined
-      });
+        endDate: endDate || undefined,
+        age: filterAge !== 'all' ? filterAge : undefined
+      } as any);
       
       const mapped = res.data.map((l: any) => mapLead(l, users));
 
@@ -435,6 +443,20 @@ export default function KanbanListPage() {
             ]}
           />
         </div>
+        <div className="w-full sm:w-auto sm:flex-1 min-w-[160px]">
+          <Select
+            value={filterAge}
+            onChange={(e) => setFilterAge(e.target.value as string)}
+            options={[
+              { value: "all", label: "Select Age" },
+              { value: "0-18", label: "0-18 Years" },
+              { value: "19-30", label: "19-30 Years" },
+              { value: "31-45", label: "31-45 Years" },
+              { value: "46-60", label: "46-60 Years" },
+              { value: "61+", label: "61+ Years" }
+              ]}
+            />
+          </div>
         <div className="flex items-center gap-2">
           <Button
             variant="primary"
@@ -448,10 +470,14 @@ export default function KanbanListPage() {
             className="rounded-lg"
             onClick={() => {
               setFilterProduct(["all"]);
-              if (isAdmin) setFilterAssignee(["all"]);
               setFilterStatus(["all"]);
               setFilterReason(["all"]);
-              setTimeout(() => applyFilters(isAdmin ? "all" : (currentUser?._id || currentUser?.id)), 0);
+              setFilterAge("all");
+              if (isAdmin) {
+                setFilterAssignee(["all"]);
+              } else {
+                setFilterAssignee([currentUser?._id || currentUser?.id]);
+              }
             }}
           >
             Clear Filter

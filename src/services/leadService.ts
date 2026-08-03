@@ -47,6 +47,7 @@ export interface FetchParams {
   reminderEndDate?: string;
   isRepeat?: boolean;
   isDeleted?: boolean;
+  age?: string;
 }
 
 // GET /api/leads
