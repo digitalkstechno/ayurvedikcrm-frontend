@@ -145,7 +145,7 @@ export default function ActivityLogPage() {
         </p>
       </div>
 
-      <div className="bg-white p-6  space-y-6">
+      <div className="bg-white space-y-6">
 
         <div className="flex flex-wrap items-center justify-end gap-3 border-b border-border-ui pb-4">
           <div className="w-full sm:w-auto min-w-40">

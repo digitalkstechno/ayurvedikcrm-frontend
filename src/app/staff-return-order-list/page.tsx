@@ -88,7 +88,7 @@ export default function StaffReturnOrderListPage() {
   return (
     <div className="space-y-6">
       {/* White Card Container */}
-      <div className="bg-white p-6  space-y-6">
+      <div className="bg-white space-y-6">
 
         {/* Header and Date Range */}
         <div className="flex items-center justify-between border-b border-zinc-100 pb-4">

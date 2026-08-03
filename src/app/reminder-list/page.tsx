@@ -224,7 +224,7 @@ export default function ReminderListPage() {
         itemType="reminder"
       />
 
-      <div className="bg-card-bg p-8  space-y-6">
+      <div className="bg-card-bg space-y-6">
 
         {/* Header and Date Range */}
         <div className="flex items-center justify-between  pb-6">

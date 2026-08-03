@@ -33,10 +33,46 @@ export function exportCopy(rows: ExportRow[], fields: ExportField[]): void {
 
 export function exportExcel(rows: ExportRow[], fields: ExportField[], filename: string): void {
   const headers = fields.map(f => f.header);
-  const tsv = [headers, ...rows.map(r => flatten(r, fields))]
-    .map(row => row.join('\t'))
-    .join('\n');
-  const blob = new Blob(['\uFEFF' + tsv], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const tableRows = rows
+    .map(r =>
+      `<tr>${flatten(r, fields)
+        .map(v => `<td style="font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 10pt; border: 1px solid #e5e7eb; padding: 6px 12px; color: #1f2f3e; min-width: 120px;" width="160">${v}</td>`)
+        .join('')}</tr>`
+    )
+    .join('');
+
+  const html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <!--[if gte mso 9]>
+      <xml>
+        <x:ExcelWorkbook>
+          <x:ExcelWorksheets>
+            <x:ExcelWorksheet>
+              <x:Name>${filename}</x:Name>
+              <x:WorksheetOptions>
+                <x:DisplayGridlines/>
+              </x:WorksheetOptions>
+            </x:ExcelWorksheet>
+          </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+      </xml>
+      <![endif]-->
+      <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    </head>
+    <body>
+      <table>
+        <thead>
+          <tr>${headers.map(h => `<th style="font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background-color: #395244; color: #ffffff; font-weight: bold; font-size: 11pt; border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; min-width: 120px;" width="160">${h}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+    </body>
+    </html>`;
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

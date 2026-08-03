@@ -76,6 +76,7 @@ export default function LeadListPage() {
   const [filterStatus, setFilterStatus] = useState<string[]>(["all"]);
   const [filterReason, setFilterReason] = useState<string[]>(["all"]);
   const [filterAge, setFilterAge] = useState<string>("all");
+  const [filterOrderStatus, setFilterOrderStatus] = useState<string>("all");
 
   const getTodayString = () => {
     const d = new Date();
@@ -105,7 +106,8 @@ export default function LeadListPage() {
         reason_call: filterReason.includes('all') ? undefined : filterReason.join(','),
         startDate: startToUse || undefined,
         endDate: endToUse || undefined,
-        age: filterAge !== 'all' ? filterAge : undefined
+        age: filterAge !== 'all' ? filterAge : undefined,
+        orderStatus: filterOrderStatus !== 'all' ? filterOrderStatus : undefined
       });
       const mappedLeads = leadsRes.data.map((l: any) => ({
         ...l,
@@ -188,7 +190,7 @@ export default function LeadListPage() {
       setCurrentPage(1);
       loadLeadsData(undefined, undefined, undefined, 1);
     }
-  }, [filterProduct, filterAssignee, filterStatus, filterReason, filterAge]);
+  }, [filterProduct, filterAssignee, filterStatus, filterReason, filterAge, filterOrderStatus]);
 
 
   const updateLead = async (id: string, updated: Partial<Lead>) => {
@@ -467,7 +469,8 @@ export default function LeadListPage() {
         reason_call: filterReason.includes('all') ? undefined : filterReason.join(','),
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        age: filterAge !== 'all' ? filterAge : undefined
+        age: filterAge !== 'all' ? filterAge : undefined,
+        orderStatus: filterOrderStatus !== 'all' ? filterOrderStatus : undefined
       });
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
@@ -706,6 +709,17 @@ export default function LeadListPage() {
               ]}
             />
           </div>
+          <div className="w-full sm:w-auto sm:flex-1 min-w-[160px]">
+            <Select
+              value={filterOrderStatus}
+              onChange={(e) => setFilterOrderStatus(e.target.value as string)}
+              options={[
+                { value: "all", label: "Convert Order" },
+                { value: "true", label: "Converted" },
+                { value: "false", label: "Convert To Order" }
+              ]}
+            />
+          </div>
 
           <div className="flex items-center gap-2">
             <Button
@@ -723,6 +737,7 @@ export default function LeadListPage() {
                 setFilterStatus(["all"]);
                 setFilterReason(["all"]);
                 setFilterAge("all");
+                setFilterOrderStatus("all");
                 if (isAdmin) {
                   setFilterAssignee(["all"]);
                 } else {

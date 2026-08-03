@@ -77,7 +77,7 @@ export const exportOrders = async (params?: FetchParams): Promise<Blob> => {
     "No": index + 1,
     "Lead Name": order.name || "-",
     "Product Name": order.product || (order.products?.map((p: any) => p.name).join(", ") || "-"),
-    "Grand Total": `₹${order.grandTotal || order.amount || 0}`,
+    "Grand Total": order.grandTotal || order.amount || 0,
     "Phone Number": order.phone_number || "-",
     "Date": order.createdAt ? (() => {
         const d = new Date(order.createdAt);

@@ -48,6 +48,7 @@ export interface FetchParams {
   isRepeat?: boolean;
   isDeleted?: boolean;
   age?: string;
+  orderStatus?: string;
 }
 
 // GET /api/leads
@@ -96,7 +97,7 @@ export const exportLeads = async (params?: FetchParams): Promise<Blob> => {
     "Product Name": lead.products?.length 
         ? lead.products.map((p: any) => p.name).join(", ") 
         : lead.product || "-",
-    "Total": `₹${lead.subtotal || (lead.products?.length ? lead.products.reduce((acc: number, p: any) => acc + (p.subtotal || (p.amount * (p.quantity || 1)) || 0), 0) : (lead.amount || 0))}`,
+    "Total": lead.subtotal || (lead.products?.length ? lead.products.reduce((acc: number, p: any) => acc + (p.subtotal || (p.amount * (p.quantity || 1)) || 0), 0) : (lead.amount || 0)),
     "Assign By": lead.assgin?.name || lead.assgin || "-",
     "Date": lead.createdAt ? (() => {
         const d = new Date(lead.createdAt);

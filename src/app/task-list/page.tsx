@@ -151,7 +151,7 @@ export default function LeadTryPage() {
         </div>
 
         {/* Table Element */}
-        <div className="bg-card-bg p-8 ">
+        <div className="bg-card-bg ">
           <Table
             data={tasks}
             columns={columns}

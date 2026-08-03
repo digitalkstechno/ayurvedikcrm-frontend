@@ -146,7 +146,7 @@ export default function ReturnOrderPage() {
 
   React.useEffect(() => {
     loadReturnOrdersData();
-  }, [filterAssign, filterProduct]);
+  }, [filterAssign, filterProduct, filterType]);
 
   const executeDelete = async () => {
     if (!returnOrderToDelete) return;
@@ -391,7 +391,7 @@ export default function ReturnOrderPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-6 space-y-6">
+      <div className="bg-white space-y-6">
 
         {/* Top Header Row with Dates and Add Button */}
         <div className="flex flex-wrap items-center justify-between border-b border-zinc-100 pb-4 gap-4">
