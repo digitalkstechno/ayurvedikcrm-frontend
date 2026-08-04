@@ -97,10 +97,10 @@ export default function AddLeadPage() {
   const [modalSelectedProducts, setModalSelectedProducts] = useState<SelectedProductRow[]>([]);
   const [currentSelectedProductId, setCurrentSelectedProductId] = useState("");
 
-  // Convert to Order fields
   const [paymentType, setPaymentType] = useState<"COD" | "Prepaid">("COD");
   const [selectedCourier, setSelectedCourier] = useState("Delhivery");
   const [transactionId, setTransactionId] = useState("");
+  const [deliveryNo, setDeliveryNo] = useState("");
 
   const handleAddProduct = () => {
     if (!currentSelectedProductId) return;
@@ -159,7 +159,11 @@ export default function AddLeadPage() {
       reason_call: statusTwo,
       note: noteText,
       reminder: reminder,
-      orderStatus: orderStatus
+      orderStatus: orderStatus,
+      paymentType: orderStatus ? paymentType : undefined,
+      courier: orderStatus ? selectedCourier : undefined,
+      transactionId: orderStatus ? transactionId : undefined,
+      deliveryNo: orderStatus ? deliveryNo : undefined
     };
 
     try {
@@ -187,6 +191,7 @@ export default function AddLeadPage() {
             courier: selectedCourier,
             assginTo: assignee,
             transactionId: transactionId || "TXN-AUTO",
+            delivery_no: deliveryNo || undefined,
             status: "Dispatched"
           });
           toast.success("Order created automatically!");
@@ -300,20 +305,39 @@ export default function AddLeadPage() {
 
           {/* Convert to Order fields shown when checkbox is checked */}
           {orderStatus && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-zinc-50 rounded-lg border border-zinc-200">
-              <Select
-                label="Payment Type"
-                value={paymentType}
-                onChange={(e) => setPaymentType(e.target.value as "COD" | "Prepaid")}
-                options={[
-                  { value: "COD", label: "Cash on Delivery (COD)" },
-                  { value: "Prepaid", label: "Prepaid Online" }
-                ]}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 p-6 bg-red-50/30 dark:bg-red-950/10 rounded-xl border-2 border-red-500/20 items-start shadow-soft transition-all duration-300 animate-fade-in">
+              <div className="space-y-2 text-left">
+                <label className="text-[13px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">Payment Type</label>
+                <div className="flex items-center gap-5 mt-3">
+                  <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer font-medium hover:text-red-600 transition-colors">
+                    <input
+                      type="radio"
+                      name="addPagePaymentType"
+                      value="COD"
+                      checked={paymentType === 'COD'}
+                      onChange={(e) => setPaymentType(e.target.value as any)}
+                      className="w-4.5 h-4.5 text-red-600 focus:ring-red-500 accent-red-600 cursor-pointer"
+                    />
+                    COD
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer font-medium hover:text-red-600 transition-colors">
+                    <input
+                      type="radio"
+                      name="addPagePaymentType"
+                      value="Prepaid"
+                      checked={paymentType === 'Prepaid'}
+                      onChange={(e) => setPaymentType(e.target.value as any)}
+                      className="w-4.5 h-4.5 text-red-600 focus:ring-red-500 accent-red-600 cursor-pointer"
+                    />
+                    Prepaid
+                  </label>
+                </div>
+              </div>
               <Select
                 label="Courier Partner"
                 value={selectedCourier}
                 onChange={(e) => setSelectedCourier(e.target.value)}
+                menuPortalTarget={true}
                 options={couriers.map(c => ({ value: c.name, label: c.name }))}
               />
               <Input
@@ -321,6 +345,12 @@ export default function AddLeadPage() {
                 value={transactionId}
                 onChange={(e) => setTransactionId(e.target.value)}
                 placeholder="e.g. TXN90283019"
+              />
+              <Input
+                label="Delivery No"
+                value={deliveryNo}
+                onChange={(e) => setDeliveryNo(e.target.value)}
+                placeholder="e.g. 987654321"
               />
             </div>
           )}

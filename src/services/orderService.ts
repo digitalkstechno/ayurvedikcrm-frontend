@@ -22,6 +22,7 @@ export interface Order {
   courier?: string;
   assginTo?: string;
   transactionId?: string;
+  delivery_no?: string;
   status?: string;
   createdAt?: string;
   updatedAt?: string;

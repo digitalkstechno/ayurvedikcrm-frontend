@@ -20,6 +20,10 @@ export interface Lead {
   remark?: string;
   reminder?: string;
   orderStatus?: boolean;
+  paymentType?: 'COD' | 'Prepaid';
+  courier?: string;
+  transactionId?: string;
+  deliveryNo?: string;
   isRepeat?: boolean;
   createdAt?: string;
   updatedAt?: string;

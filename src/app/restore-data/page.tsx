@@ -110,7 +110,7 @@ export default function RestoreDataPage() {
         </p>
       </div>
 
-      <div className="bg-card-bg  rounded-lg shadow-soft">
+      <div>
         <Table
           data={leads}
           columns={columns}

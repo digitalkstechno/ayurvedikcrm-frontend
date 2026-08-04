@@ -66,6 +66,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
   const [paymentType, setPaymentType] = useState<"COD" | "Prepaid">("COD");
   const [selectedCourier, setSelectedCourier] = useState("");
   const [transactionId, setTransactionId] = useState("");
+  const [deliveryNo, setDeliveryNo] = useState("");
   const [couriers, setCouriers] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -121,6 +122,12 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
             setPaymentType(fetchedData.paymentType || "COD");
             setSelectedCourier(fetchedData.courier || "");
             setTransactionId(fetchedData.transactionId || "");
+            setDeliveryNo(fetchedData.deliveryNo || "");
+          } else {
+            setPaymentType("COD");
+            setSelectedCourier("");
+            setTransactionId("");
+            setDeliveryNo("");
           }
 
           if (fetchedData.products && Array.isArray(fetchedData.products)) {
@@ -156,6 +163,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
         setPaymentType("COD");
         setSelectedCourier("");
         setTransactionId("");
+        setDeliveryNo("");
         setModalSelectedProducts([]);
         setIsRepeatMode(false);
 
@@ -369,6 +377,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       paymentType: orderStatus ? paymentType : undefined,
       courier: orderStatus ? selectedCourier : undefined,
       transactionId: orderStatus ? transactionId : undefined,
+      deliveryNo: orderStatus ? deliveryNo : undefined,
       isRepeat: isRepeatMode
     };
 
@@ -391,6 +400,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
               courier: selectedCourier,
               assginTo: assignee,
               transactionId: transactionId || "TXN-AUTO",
+              delivery_no: deliveryNo || undefined,
               status: "Dispatched"
             });
             toast.success("Order created automatically!");
@@ -554,16 +564,30 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
         </div>
 
         {orderStatus && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5 bg-gradient-subtle rounded-xl border border-primary-teal/20 items-center shadow-soft">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 p-6 bg-gradient-subtle rounded-xl border-2 border-primary-teal/20 items-start shadow-soft transition-all duration-300 animate-fade-in">
             <div className="space-y-2">
               <label className="text-[13px] font-bold text-primary-teal uppercase tracking-wide">Payment Type</label>
-              <div className="flex items-center gap-5 mt-1.5">
-                <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer font-medium">
-                  <input type="radio" name="modalPaymentType" value="COD" checked={paymentType === 'COD'} onChange={(e) => setPaymentType(e.target.value as any)} className="w-4 h-4 text-primary-teal" />
+              <div className="flex items-center gap-5 mt-3">
+                <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer font-medium hover:text-primary-teal transition-colors">
+                  <input
+                    type="radio"
+                    name="modalPaymentType"
+                    value="COD"
+                    checked={paymentType === 'COD'}
+                    onChange={(e) => setPaymentType(e.target.value as any)}
+                    className="w-4.5 h-4.5 text-primary-teal focus:ring-primary-teal accent-primary cursor-pointer"
+                  />
                   COD Discount
                 </label>
-                <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer font-medium">
-                  <input type="radio" name="modalPaymentType" value="Prepaid" checked={paymentType === 'Prepaid'} onChange={(e) => setPaymentType(e.target.value as any)} className="w-4 h-4 text-primary-teal" />
+                <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer font-medium hover:text-primary-teal transition-colors">
+                  <input
+                    type="radio"
+                    name="modalPaymentType"
+                    value="Prepaid"
+                    checked={paymentType === 'Prepaid'}
+                    onChange={(e) => setPaymentType(e.target.value as any)}
+                    className="w-4.5 h-4.5 text-primary-teal focus:ring-primary-teal accent-primary cursor-pointer"
+                  />
                   Prepaid Discount
                 </label>
               </div>
@@ -572,6 +596,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
               label="Courier Partner"
               value={selectedCourier}
               onChange={(e) => setSelectedCourier(e.target.value)}
+              menuPortalTarget={true}
               options={[
                 { value: "", label: "Select Courier Partner" },
                 ...couriers.map(c => ({ value: c.name, label: c.name }))
@@ -582,6 +607,12 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
               placeholder="e.g. TXN90283019"
+            />
+            <Input
+              label="Delivery No"
+              value={deliveryNo}
+              onChange={(e) => setDeliveryNo(e.target.value)}
+              placeholder="e.g. 987654321"
             />
           </div>
         )}

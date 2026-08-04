@@ -40,7 +40,7 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/20 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/20 backdrop-blur-sm animate-fade-in mb-0">
       <div
         className={`relative w-full ${sizeClass} bg-card-bg border border-border-ui rounded-lg shadow-soft flex flex-col max-h-[90vh] animate-modal-in`}
         onClick={(e) => e.stopPropagation()}
