@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useToast } from "../../context/ToastContext";
 import { Table, Column } from "../../components/common/Table";
 import { Select } from "../../components/common/Select";
@@ -8,18 +8,19 @@ import { Input } from "../../components/common/Input";
 import { Button } from "../../components/common/Button";
 import { Modal } from "../../components/common/Modal";
 import { Close, CalendarToday } from "@mui/icons-material";
-import { FiEdit, FiTrash2, FiRefreshCcw } from "react-icons/fi";
+import { FiEdit, FiTrash2, FiRefreshCcw, FiMessageSquare } from "react-icons/fi";
 import { fetchProducts } from "../../services/productService";
 import { fetchUsers } from "../../services/userService";
-import { fetchOrders, createOrderApi, updateOrderApi, deleteOrderApi, exportOrders } from "../../services/orderService";
+import { fetchOrders, createOrderApi, updateOrderApi, deleteOrderApi, exportOrders, StatusHistoryItem } from "../../services/orderService";
 import { usePermission } from "../../utils/permissionUtils";
 import { DeleteConfirmModal } from "../../components/common/DeleteConfirmModal";
 import { getAuthenticatedUser } from "../../utils/authUtils";
 import { fetchCouriers } from "../../services/courierService";
 import { DateRangePicker } from "../../components/common/DateRangePicker";
 import { formatDateTime } from "../../utils/dateUtils";
+import { fetchReasonToCalls, ReasonToCall } from "../../services/reasonToCallService";
 
-export interface Order {
+export interface DeliveryOrder {
   id: string;
   leadId: string;
   name: string;
@@ -38,7 +39,9 @@ export interface Order {
   delivery_no?: string;
   returnType?: string;
   repartOrderTotal?: number;
-  status: string; // Converted, Dispatched, Delivered, Returned
+  status: string;
+  statusReason?: string;
+  statusHistory?: StatusHistoryItem[];
   _products?: any[];
   products?: any[];
 }
@@ -52,9 +55,9 @@ interface SelectedProductRow {
   subtotal?: number;
 }
 
-export default function OrderListPage() {
+export default function DeliveryListPage() {
   const { hasPermission } = usePermission();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [couriers, setCouriers] = useState<any[]>([]);
@@ -68,6 +71,26 @@ export default function OrderListPage() {
   const [filterProduct, setFilterProduct] = useState<string[]>(["all"]);
   const [filterAssignee, setFilterAssignee] = useState<string[]>(["all"]);
   const [filterCourier, setFilterCourier] = useState<string[]>(["all"]);
+  const [isFetchingData, setIsFetchingData] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const [reasonOptions, setReasonOptions] = useState<ReasonToCall[]>([]);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [targetOrderForStatus, setTargetOrderForStatus] = useState<DeliveryOrder | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<string>("");
+  const [statusReasonInput, setStatusReasonInput] = useState<string>("");
+  const [selectedPredefinedReason, setSelectedPredefinedReason] = useState<string>("");
+  const [reasonError, setReasonError] = useState<string>("");
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedOrderForHistory, setSelectedOrderForHistory] = useState<DeliveryOrder | null>(null);
+
+  useEffect(() => {
+    fetchReasonToCalls({ page: 1, limit: 100 })
+      .then(res => setReasonOptions(res.data || []))
+      .catch(() => {});
+  }, []);
 
   const [orderStats, setOrderStats] = useState({
     delivered: 0,
@@ -108,7 +131,7 @@ export default function OrderListPage() {
         startDate: startToUse || undefined,
         endDate: endToUse || undefined
       });
-      // Map backend orders to frontend format
+
       const mapped = ordersRes.data.map((o: any) => ({
         id: o._id || o.id,
         leadId: o.leadId?._id || o.leadId || "",
@@ -126,8 +149,11 @@ export default function OrderListPage() {
         assginToId: typeof o.assginTo === 'object' ? (o.assginTo?._id || o.assginTo?.id || "") : (o.assginTo || ""),
         transactionId: o.transactionId || "",
         delivery_no: o.delivery_no || "",
-        status: o.status || "Dispatched",
-        // Store raw products array for edit modal
+        status: o.status || "IN TRANSIT",
+        statusReason: o.statusReason || "",
+        statusHistory: (o.statusHistory && o.statusHistory.length > 0)
+          ? o.statusHistory
+          : (o.statusReason ? [{ oldStatus: 'IN TRANSIT', newStatus: o.status || 'IN TRANSIT', reason: o.statusReason, updatedBy: typeof o.assginTo === 'object' ? o.assginTo?.name : (o.assginTo || 'User'), createdAt: o.updatedAt || o.createdAt }] : []),
         _products: o.products || []
       }));
       setOrders(mapped);
@@ -201,202 +227,78 @@ export default function OrderListPage() {
     }
   }, [filterProduct, filterAssignee, filterCourier]);
 
-  const updateOrder = async (id: string, updated: Partial<Order>) => {
-    try {
-      await updateOrderApi(id, updated as any);
-      setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updated } : o));
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to update order");
-    }
-  };
-
-  const addOrder = async (o: Omit<Order, "id">) => {
-    try {
-      const created = await createOrderApi(o as any);
-      const createdId = (created as any)._id || Date.now().toString();
-      
-      setOrders(prev => {
-        const existingIdx = prev.findIndex(p => p.id === createdId);
-        if (existingIdx >= 0) {
-          // If the backend merged this order into an existing one, update the existing row
-          const updated = [...prev];
-          // We map the returned backend object to the frontend format to get accurate totals
-          const oData = created as any;
-          updated[existingIdx] = {
-            ...updated[existingIdx],
-            product: oData.product || (oData.products?.map((p: any) => p.name).join(", ") || ""),
-            amount: oData.amount || 0,
-            quantity: oData.quantity || 1,
-            subtotal: oData.amount || 0,
-            grandTotal: oData.grandTotal || oData.subtotal || (oData.products?.length ? oData.products.reduce((acc: number, p: any) => acc + (p.subtotal || (p.amount * (p.quantity || 1)) || 0), 0) : (oData.amount || 0)),
-            _products: oData.products || []
-          };
-          return updated;
-        }
-        // Otherwise, append as a new order
-        return [...prev, { ...o, id: createdId }];
-      });
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to create order");
-      throw err;
-    }
-  };
-
   const toast = useToast();
 
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-
-
-  const [isFetchingData, setIsFetchingData] = useState(false);
-
   const [editOpen, setEditOpen] = useState(false);
-  const [repeatOpen, setRepeatOpen] = useState(false);
-  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [activeOrder, setActiveOrder] = useState<DeliveryOrder | null>(null);
 
   const [paymentType, setPaymentType] = useState<"COD" | "Prepaid">("COD");
   const [txnId, setTxnId] = useState("");
-  const [courier, setCourier] = useState("");
   const [deliveryNo, setDeliveryNo] = useState("");
-  
-  const [modalSelectedProducts, setModalSelectedProducts] = useState<SelectedProductRow[]>([]);
+  const [courier, setCourier] = useState("");
   const [modalProductSelect, setModalProductSelect] = useState("");
-  
-  const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
-  const [isRepeatingOrder, setIsRepeatingOrder] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [modalSelectedProducts, setModalSelectedProducts] = useState<SelectedProductRow[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
-
-  const filteredOrders = React.useMemo(() => {
-    return orders;
-  }, [orders]);
+  const [orderToDelete, setOrderToDelete] = useState<DeliveryOrder | null>(null);
 
   const handleAddProduct = () => {
     if (!modalProductSelect) return;
-    const prod = products.find(p => (p._id || p.id) === modalProductSelect);
+    const prod = products.find((p) => p._id === modalProductSelect || p.id === modalProductSelect);
     if (!prod) return;
 
-    const existingIdx = modalSelectedProducts.findIndex(p => p.id === (prod._id || prod.id));
+    const existingIdx = modalSelectedProducts.findIndex((p) => p.productId === prod._id || p.id === prod._id);
     if (existingIdx >= 0) {
       const updated = [...modalSelectedProducts];
       updated[existingIdx].quantity += 1;
-      updated[existingIdx].subtotal = updated[existingIdx].amount * updated[existingIdx].quantity;
       setModalSelectedProducts(updated);
       toast.success("Product quantity incremented!");
-      return;
+    } else {
+      setModalSelectedProducts([
+        ...modalSelectedProducts,
+        {
+          id: prod._id || prod.id,
+          productId: prod._id || prod.id,
+          name: prod.name,
+          amount: prod.amount,
+          quantity: 1,
+          subtotal: prod.amount
+        }
+      ]);
+      toast.success("Product added!");
     }
-
-    setModalSelectedProducts([
-      ...modalSelectedProducts,
-      {
-        id: prod._id || prod.id,
-        productId: prod._id || prod.id,
-        name: prod.name,
-        amount: prod.amount,
-        quantity: 1,
-        subtotal: prod.amount
-      }
-    ]);
     setModalProductSelect("");
   };
 
-  const handleQtyChange = (id: string, qty: number) => {
-    setModalSelectedProducts(prev => prev.map(p => p.id === id ? { ...p, quantity: Math.max(1, qty), subtotal: p.amount * Math.max(1, qty) } : p));
-  };
-
   const handleRemoveProduct = (id: string) => {
-    setModalSelectedProducts(prev => prev.filter(p => p.id !== id));
+    setModalSelectedProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const totalAmount = modalSelectedProducts.reduce((sum, p) => sum + p.amount * p.quantity, 0);
+  const handleQtyChange = (id: string, qty: number) => {
+    const safeQty = Math.max(1, qty);
+    setModalSelectedProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, quantity: safeQty, subtotal: safeQty * p.amount } : p))
+    );
+  };
 
-  const openEdit = (order: any) => {
+  const totalAmount = modalSelectedProducts.reduce(
+    (sum, p) => sum + (p.amount || 0) * (p.quantity || 1),
+    0
+  );
+
+  const openEdit = (order: DeliveryOrder) => {
     setActiveOrder(order);
-    setPaymentType(order.paymentType === "Prepaid" ? "Prepaid" : "COD");
+    setPaymentType(order.paymentType || "COD");
     setTxnId(order.transactionId || "");
+    setDeliveryNo(order.delivery_no || "");
     setCourier(order.courier || "");
-    setDeliveryNo(order.delivery_no || "");
-    
-    const rawProducts: any[] = order._products || [];
-    if (rawProducts.length > 0) {
-      setModalSelectedProducts(rawProducts.map((p: any) => ({
-        id: p.productId?._id || p.productId || p._id || p.id || Math.random().toString(),
-        productId: p.productId?._id || p.productId || p._id || p.id,
-        name: p.productId?.name || p.name || "",
-        amount: p.productId?.amount || p.amount || 0,
-        quantity: p.quantity || 1,
-        subtotal: p.subtotal || ((p.productId?.amount || p.amount || 0) * (p.quantity || 1))
-      })));
-    } else {
-      const existingProds = products.filter(p => order.product.includes(p.name));
-      setModalSelectedProducts(existingProds.map(p => ({
-        id: p._id || p.id,
-        productId: p._id || p.id,
+
+    if (order._products && order._products.length > 0) {
+      setModalSelectedProducts(order._products.map((p: any) => ({
+        id: p.productId?._id || p.productId || p._id || Date.now().toString(),
+        productId: p.productId?._id || p.productId || p._id,
         name: p.name,
-        amount: p.amount,
-        quantity: 1,
-        subtotal: p.amount
-      })));
-    }
-
-    setEditOpen(true);
-  };
-
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeOrder) return;
-    if (modalSelectedProducts.length === 0) {
-      toast.warning("At least one product is required!");
-      return;
-    }
-
-    setIsUpdatingOrder(true);
-    try {
-      await updateOrder(activeOrder.id, {
-        paymentType,
-        transactionId: txnId,
-        delivery_no: deliveryNo,
-        courier,
-        product: modalSelectedProducts.map(p => p.name).join(", "),
-        products: modalSelectedProducts.map((p) => ({
-          productId: p.productId || p.id,
-          name: p.name,
-          amount: p.amount,
-          quantity: p.quantity,
-          subtotal: p.subtotal
-        })),
-        _products: modalSelectedProducts.map((p) => ({
-          productId: p.productId || p.id,
-          name: p.name,
-          amount: p.amount,
-          quantity: p.quantity,
-          subtotal: p.subtotal
-        })),
-        grandTotal: totalAmount
-      });
-      toast.success(`Order details updated successfully.`);
-      setEditOpen(false);
-    } catch (_) {
-    } finally {
-      setIsUpdatingOrder(false);
-    }
-  };
-
-  const openRepeat = (order: Order) => {
-    setActiveOrder(order);
-    setPaymentType(order.paymentType === "Prepaid" ? "Prepaid" : "COD");
-    setTxnId(order.transactionId || "");
-    setCourier(order.courier || couriers[0]?.name || "");
-    setDeliveryNo(order.delivery_no || "");
-
-    const rawProducts: any[] = (order as any)._products || [];
-    if (rawProducts.length > 0) {
-      setModalSelectedProducts(rawProducts.map((p: any) => ({
-        id: p.productId?._id || p.productId || p._id || p.id || Math.random().toString(),
-        productId: p.productId?._id || p.productId || p._id || p.id,
-        name: p.productId?.name || p.name || "",
         amount: p.productId?.amount || p.amount || 0,
         quantity: p.quantity || 1,
         subtotal: p.subtotal || ((p.productId?.amount || p.amount || 0) * (p.quantity || 1))
@@ -414,30 +316,20 @@ export default function OrderListPage() {
     }
 
     setModalProductSelect("");
-    setRepeatOpen(true);
+    setEditOpen(true);
   };
 
-  const handleRepeatSubmit = async (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeOrder) return;
     if (modalSelectedProducts.length === 0) {
-      toast.warning("Please add products for the repeat order!");
+      toast.warning("Please add at least one product!");
       return;
     }
 
-    setIsRepeatingOrder(true);
+    setIsSubmitting(true);
     try {
-      const resolvedAssigneeId =
-        (activeOrder as any).assginToId ||
-        (typeof (activeOrder as any).assginTo === 'object'
-          ? ((activeOrder as any).assginTo?._id || (activeOrder as any).assginTo?.id)
-          : null) ||
-        users.find((u) => u.name === activeOrder.assginTo || u._id === activeOrder.assginTo || u.id === activeOrder.assginTo)?._id ||
-        users.find((u) => u.name === activeOrder.assginTo || u._id === activeOrder.assginTo || u.id === activeOrder.assginTo)?.id ||
-        activeOrder.assginTo;
-
-      await addOrder({
-        leadId: activeOrder.leadId,
+      const payload: any = {
         name: activeOrder.name,
         phone_number: activeOrder.phone_number,
         products: modalSelectedProducts.map((p) => ({
@@ -448,27 +340,29 @@ export default function OrderListPage() {
           subtotal: (p.amount || 0) * (p.quantity || 1)
         })),
         product: modalSelectedProducts.map((p) => p.name).join(", "),
-        amount: modalSelectedProducts.reduce((sum, p) => sum + (p.amount || 0), 0),
+        amount: totalAmount,
         quantity: modalSelectedProducts.reduce((sum, p) => sum + (p.quantity || 0), 0),
         subtotal: totalAmount,
         grandTotal: totalAmount,
-        date: new Date().toISOString().split("T")[0],
         paymentType,
         courier,
-        assginTo: resolvedAssigneeId,
         transactionId: txnId,
         delivery_no: deliveryNo,
-        status: "Dispatched"
-      });
-      toast.success(`Repeat Order created for ${activeOrder.name}!`);
-      setRepeatOpen(false);
-    } catch (_) {
+        status: activeOrder.status || "IN TRANSIT"
+      };
+
+      await updateOrderApi(activeOrder.id, payload);
+      setOrders(prev => prev.map(o => o.id === activeOrder.id ? { ...o, ...payload, _products: payload.products } : o));
+      toast.success("Delivery Order updated successfully!");
+      setEditOpen(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to update order");
     } finally {
-      setIsRepeatingOrder(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleDeleteClick = (order: Order) => {
+  const handleDeleteClick = (order: DeliveryOrder) => {
     setOrderToDelete(order);
     setDeleteOpen(true);
   };
@@ -478,7 +372,7 @@ export default function OrderListPage() {
     try {
       await deleteOrderApi(orderToDelete.id);
       setOrders(prev => prev.filter(o => o.id !== orderToDelete.id));
-      toast.warning("Order deleted.");
+      toast.warning("Delivery Order deleted.");
       setDeleteOpen(false);
       setOrderToDelete(null);
     } catch (err: any) {
@@ -487,7 +381,7 @@ export default function OrderListPage() {
   };
 
   const handleExport = async () => {
-    if (!hasPermission("Order-export")) {
+    if (!hasPermission("Delivery-export")) {
       toast.error("You do not have permission to export.");
       return;
     }
@@ -505,55 +399,92 @@ export default function OrderListPage() {
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `orders_export_${new Date().getTime()}.csv`);
+      link.setAttribute('download', `delivery_orders_export_${new Date().getTime()}.csv`);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
       toast.success("Export successful!");
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to export orders");
+      toast.error(err.response?.data?.message || "Failed to export delivery orders");
     } finally {
       setIsExporting(false);
     }
   };
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
-    const oldOrder = orders.find(o => o.id === orderId);
-    const oldStatus = oldOrder?.status || "IN TRANSIT";
-    
-    // Optimistic update
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-    
-    // Update live stats
-    setOrderStats(prev => {
-      const next = { ...prev };
-      const oldNorm = oldStatus.toUpperCase();
-      const newNorm = newStatus.toUpperCase();
+  const promptStatusChange = (order: DeliveryOrder, newStatus: string) => {
+    const normCurrent = (order.status || "IN TRANSIT").toUpperCase();
+    const normNew = newStatus.toUpperCase();
+    if (normCurrent === normNew) return;
 
-      if (oldNorm === "DELIVERED") next.delivered = Math.max(0, next.delivered - 1);
-      else if (oldNorm === "RTO") next.rto = Math.max(0, next.rto - 1);
-      else next.inTransit = Math.max(0, next.inTransit - 1);
+    setTargetOrderForStatus(order);
+    setPendingStatus(newStatus);
+    setStatusReasonInput("");
+    setReasonError("");
+    setStatusModalOpen(true);
+  };
 
-      if (newNorm === "DELIVERED") next.delivered += 1;
-      else if (newNorm === "RTO") next.rto += 1;
-      else next.inTransit += 1;
-
-      return next;
-    });
+  const confirmStatusChange = async () => {
+    const finalReason = statusReasonInput.trim();
+    if (!finalReason) {
+      setReasonError("Reason is required when changing status.");
+      return;
+    }
+    if (!targetOrderForStatus) return;
 
     try {
-      await updateOrderApi(orderId, { status: newStatus });
-      toast.success(`Order status updated to ${newStatus}`);
+      setIsSavingStatus(true);
+      const orderId = targetOrderForStatus.id;
+      const oldStatus = targetOrderForStatus.status;
+      const newStatus = pendingStatus;
+      const newHistoryItem: StatusHistoryItem = {
+        oldStatus: oldStatus || "IN TRANSIT",
+        newStatus: newStatus,
+        reason: finalReason,
+        updatedBy: currentUser?.name || currentUser?.email || "User",
+        createdAt: new Date().toISOString()
+      };
+
+      setOrders(prev => prev.map(o => {
+        if (o.id === orderId) {
+          const updatedHistory = [...(o.statusHistory || []), newHistoryItem];
+          return { ...o, status: newStatus, statusReason: finalReason, statusHistory: updatedHistory };
+        }
+        return o;
+      }));
+
+      setOrderStats(prev => {
+        const next = { ...prev };
+        const oldNorm = (oldStatus || "IN TRANSIT").toUpperCase();
+        const newNorm = newStatus.toUpperCase();
+
+        if (oldNorm === "DELIVERED") next.delivered = Math.max(0, next.delivered - 1);
+        else if (oldNorm === "RTO") next.rto = Math.max(0, next.rto - 1);
+        else next.inTransit = Math.max(0, next.inTransit - 1);
+
+        if (newNorm === "DELIVERED") next.delivered += 1;
+        else if (newNorm === "RTO") next.rto += 1;
+        else next.inTransit += 1;
+
+        return next;
+      });
+
+      await updateOrderApi(orderId, { status: newStatus, statusReason: finalReason });
+      toast.success(`Delivery status updated to ${newStatus}`);
+      setStatusModalOpen(false);
+      setTargetOrderForStatus(null);
+      setStatusReasonInput("");
+      setSelectedPredefinedReason("");
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to update order status");
-      // Rollback on error
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: oldStatus } : o));
+      toast.error(err.response?.data?.message || "Failed to update delivery status");
+      loadOrdersData();
+    } finally {
+      setIsSavingStatus(false);
     }
   };
 
-  const columns: Column<Order>[] = [
-    { key: "id", header: "No", render: (_, __, i) => i + 1, sortable: false },
-    { key: "name", header: "Lead Name", render: (val) => <span className="uppercase font-bold text-[12px] text-[#1f2f3e]">{val || "Unknown"}</span> },
+  const columns: Column<DeliveryOrder>[] = [
+    { key: "id", header: "No", render: (_, __, i) => (currentPage - 1) * rowsPerPage + i + 1, sortable: false },
+    { key: "name", header: "Lead Name", render: (val) => <span className="uppercase font-bold text-[12px] text-[#1f2f3e]">{val || "UNKNOWN"}</span> },
     { key: "product", header: "Product Name", render: (val) => val || "Product Name" },
     { key: "grandTotal", header: "Grand Total", render: (val) => (typeof val === "number" ? val.toFixed(2) : (val || "0.00")) },
     { key: "phone_number", header: "Phone Number" },
@@ -565,8 +496,8 @@ export default function OrderListPage() {
       sortable: false,
       render: (val, row) => {
         const rawStatus = (val || "IN TRANSIT").toUpperCase();
-        const normStatus = rawStatus === "DISPATCHED" || rawStatus === "CONVERTED" || rawStatus === "PROCESSING" 
-          ? "IN TRANSIT" 
+        const normStatus = rawStatus === "DISPATCHED" || rawStatus === "CONVERTED" || rawStatus === "PROCESSING"
+          ? "IN TRANSIT"
           : rawStatus;
 
         const getPillColor = (st: string) => {
@@ -579,7 +510,7 @@ export default function OrderListPage() {
           <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
             <select
               value={normStatus}
-              onChange={(e) => handleStatusChange(row.id, e.target.value)}
+              onChange={(e) => promptStatusChange(row, e.target.value)}
               className={`appearance-none cursor-pointer px-4 py-1.5 pr-8 rounded-full text-xs font-bold shadow-xs transition-all outline-none border border-transparent ${getPillColor(normStatus)}`}
             >
               <option value="DELIVERED" className="bg-white text-emerald-800 font-semibold py-1">
@@ -598,6 +529,16 @@ export default function OrderListPage() {
           </div>
         );
       }
+    },
+    {
+      key: "assginTo",
+      header: "Assign To",
+      sortable: false,
+      render: (val) => (
+        <span className="font-semibold text-xs text-zinc-700">
+          {val || "-"}
+        </span>
+      )
     },
     {
       key: "analytics",
@@ -649,28 +590,43 @@ export default function OrderListPage() {
       key: "actions",
       header: "Action",
       sortable: false,
-      render: (_, row) => (
-        <div className="flex items-center gap-1">
-          {hasPermission("Order-edit") && (
-            <button
-              onClick={() => openEdit(row)}
-              className="p-1.5 text-text-secondary hover:text-primary-teal hover:bg-zinc-100 rounded-lg transition-all"
-              title="Edit Order"
-            >
-              <FiEdit className="w-4 h-4" />
-            </button>
-          )}
-          {hasPermission("Order-delete") && (
-            <button
-              onClick={() => handleDeleteClick(row)}
-              className="p-1.5 text-text-secondary hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-              title="Delete Order"
-            >
-              <FiTrash2 className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      )
+      render: (_, row) => {
+        const hasHistory = (row.statusHistory && row.statusHistory.length > 0) || !!row.statusReason;
+        return (
+          <div className="flex items-center gap-1">
+            {hasHistory && (
+              <button
+                onClick={() => {
+                  setSelectedOrderForHistory(row);
+                  setHistoryModalOpen(true);
+                }}
+                className="p-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all"
+                title="View Reason History"
+              >
+                <FiMessageSquare className="w-4 h-4" />
+              </button>
+            )}
+            {(hasPermission("Delivery-list") || hasPermission("Delivery-edit")) && (
+              <button
+                onClick={() => openEdit(row)}
+                className="p-1.5 text-text-secondary hover:text-primary-teal hover:bg-zinc-100 rounded-lg transition-all"
+                title="Edit Delivery Order"
+              >
+                <FiEdit className="w-4 h-4" />
+              </button>
+            )}
+            {(hasPermission("Delivery-list") || hasPermission("Delivery-delete")) && (
+              <button
+                onClick={() => handleDeleteClick(row)}
+                className="p-1.5 text-text-secondary hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                title="Delete Delivery Order"
+              >
+                <FiTrash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        );
+      }
     }
   ];
 
@@ -848,12 +804,10 @@ export default function OrderListPage() {
 
   return (
     <div className="space-y-6">
-      
       <div className="space-y-6">
-        
         <div className="flex items-center justify-between pb-2">
           <h2 className="text-2xl font-bold text-[#1f2f3e]">
-            Order List
+            Delivery List
           </h2>
           <div className="flex items-center gap-4">
             <DateRangePicker 
@@ -916,6 +870,7 @@ export default function OrderListPage() {
           </div>
         </div>
 
+        {/* Filter Controls Row */}
         <div className="flex flex-wrap items-center gap-3 pb-6">
           <div className="w-full sm:w-auto sm:flex-1 min-w-[160px]">
             <Select
@@ -972,7 +927,7 @@ export default function OrderListPage() {
             }}>
               Clear Filter
             </Button>
-            {hasPermission("Order-export") && (
+            {hasPermission("Delivery-export") && (
               <Button
                 variant="outline"
                 className="rounded-lg px-6"
@@ -987,7 +942,7 @@ export default function OrderListPage() {
 
         {/* Table database */}
         <Table 
-           data={filteredOrders} 
+           data={orders} 
            columns={columns} 
            selectable={false}
            isLoading={isFetchingData} 
@@ -1009,71 +964,201 @@ export default function OrderListPage() {
         />
       </div>
 
-      {/* Edit Order Modal */}
-      <Modal isOpen={editOpen} onClose={() => setEditOpen(false)} title="Edit Order" sizeClass="max-w-4xl" isLoading={isUpdatingOrder}>
-        <form onSubmit={handleEditSubmit} className="space-y-4">
+      {/* Edit Modal */}
+      <Modal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        title={`Edit Delivery Order - ${activeOrder?.name || ''}`}
+      >
+        <div className="space-y-6">
           {renderModalBody()}
-          <div className="flex items-center justify-between border-t border-zinc-150 pt-4 mt-2">
-            <span className="text-sm font-bold text-zinc-800 bg-zinc-100 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm mr-auto">
-              Total Amount: <span className="text-primary-teal ml-1">₹{totalAmount.toLocaleString()}</span>
-            </span>
-            <div className="flex gap-3">
+          <div className="flex justify-between items-center w-full pt-4 border-t border-zinc-200">
+            <div className="text-left">
+              <span className="text-xs font-semibold text-zinc-500 block uppercase tracking-wider">
+                Total Amount
+              </span>
+              <span className="text-xl font-bold text-emerald-600">
+                ₹{totalAmount}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setEditOpen(false)}
-                disabled={isUpdatingOrder}
               >
-                Close
+                Cancel
               </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                isLoading={isUpdatingOrder}
-              >
-                Save Changes
-              </Button>
-            </div>
-          </div>
-        </form>
-      </Modal>
 
-      {/* Repeat Order Modal */}
-      <Modal isOpen={repeatOpen} onClose={() => setRepeatOpen(false)} title={`Repeat Order(${activeOrder?.name || "Customer"})`} sizeClass="max-w-4xl" isLoading={isRepeatingOrder}>
-        <form onSubmit={handleRepeatSubmit} className="space-y-4">
-          {renderModalBody()}
-          <div className="flex items-center justify-between border-t border-zinc-150 pt-4 mt-2">
-            <span className="text-sm font-bold text-zinc-800 bg-zinc-100 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm mr-auto">
-              Total Amount: <span className="text-primary-teal ml-1">₹{totalAmount.toLocaleString()}</span>
-            </span>
-            <div className="flex gap-3">
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => setRepeatOpen(false)}
-                disabled={isRepeatingOrder}
-              >
-                Close
-              </Button>
-              <Button
-                type="submit"
                 variant="primary"
-                isLoading={isRepeatingOrder}
+                onClick={handleEditSubmit}
+                isLoading={isSubmitting}
               >
                 Save Changes
               </Button>
             </div>
           </div>
-        </form>
+        </div>
       </Modal>
 
+      {/* Status Change Reason Modal */}
+      <Modal
+        isOpen={statusModalOpen}
+        onClose={() => {
+          setStatusModalOpen(false);
+          setTargetOrderForStatus(null);
+        }}
+        title="Reason for Delivery Status Change"
+        sizeClass="max-w-md"
+      >
+        <div className="space-y-4 text-left py-1">
+          <div className="bg-zinc-50 p-3 rounded-lg border border-zinc-200 text-xs space-y-1.5">
+            <div className="flex justify-between">
+              <span className="font-semibold text-zinc-500">Customer:</span>
+              <span className="font-bold text-zinc-800 uppercase">{targetOrderForStatus?.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-semibold text-zinc-500">Assigned Agent:</span>
+              <span className="font-bold text-teal-700">{targetOrderForStatus?.assginTo || "Unassigned"}</span>
+            </div>
+            <div className="flex justify-between items-center pt-1.5 border-t border-zinc-200">
+              <span className="font-semibold text-zinc-500">Changing Status To:</span>
+              <span className={`px-2.5 py-0.5 rounded-full font-extrabold text-[11px] text-white ${
+                pendingStatus === "DELIVERED" ? "bg-[#10B981]" : pendingStatus === "RTO" ? "bg-[#EF4444]" : "bg-[#64748B]"
+              }`}>
+                {pendingStatus}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-zinc-700 uppercase tracking-wide">
+              Reason <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              value={statusReasonInput}
+              onChange={(e) => {
+                setStatusReasonInput(e.target.value);
+                if (e.target.value.trim()) setReasonError("");
+              }}
+              placeholder="Type reason for changing delivery status..."
+              rows={3}
+              className="w-full p-2.5 text-xs border border-zinc-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent outline-none transition-all"
+            />
+            {reasonError && (
+              <p className="text-[11px] font-semibold text-rose-500">{reasonError}</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-zinc-100">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setStatusModalOpen(false);
+                setTargetOrderForStatus(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={confirmStatusChange}
+              isLoading={isSavingStatus}
+            >
+              Save Reason
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Reason History Modal */}
+      <Modal
+        isOpen={historyModalOpen}
+        onClose={() => {
+          setHistoryModalOpen(false);
+          setSelectedOrderForHistory(null);
+        }}
+        title={`Status & Reason History - ${selectedOrderForHistory?.name || ''}`}
+        sizeClass="max-w-lg"
+      >
+        <div className="space-y-4 text-left py-1">
+          <div className="bg-zinc-50 p-3 rounded-lg border border-zinc-200 text-xs flex justify-between items-center">
+            <div>
+              <span className="text-zinc-500 font-semibold block">Customer</span>
+              <span className="font-bold text-zinc-800 uppercase text-sm">{selectedOrderForHistory?.name}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-zinc-500 font-semibold block">Assigned Agent</span>
+              <span className="font-bold text-teal-700">{selectedOrderForHistory?.assginTo || "Unassigned"}</span>
+            </div>
+          </div>
+
+          <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+            {selectedOrderForHistory?.statusHistory && selectedOrderForHistory.statusHistory.length > 0 ? (
+              selectedOrderForHistory.statusHistory.map((item, idx) => (
+                <div key={idx} className="p-3 bg-white border border-zinc-200 rounded-lg shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <span className="px-2 py-0.5 bg-zinc-100 text-zinc-600 rounded text-[11px]">
+                        {item.oldStatus || "IN TRANSIT"}
+                      </span>
+                      <span className="text-zinc-400">➔</span>
+                      <span className={`px-2 py-0.5 text-white rounded text-[11px] font-extrabold ${
+                        (item.newStatus || "").toUpperCase() === "DELIVERED" ? "bg-emerald-600" :
+                        (item.newStatus || "").toUpperCase() === "RTO" ? "bg-rose-600" : "bg-slate-600"
+                      }`}>
+                        {item.newStatus || "IN TRANSIT"}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-zinc-400 font-medium">
+                      {formatDateTime(item.createdAt || new Date())}
+                    </span>
+                  </div>
+
+                  <div className="p-2 bg-amber-50/70 border border-amber-200/80 rounded text-xs text-amber-900 font-medium">
+                    💬 {item.reason}
+                  </div>
+
+                  {item.updatedBy && (
+                    <div className="text-[10px] text-zinc-400 text-right">
+                      Updated by: <span className="font-semibold text-zinc-600">{item.updatedBy}</span>
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-zinc-400 italic text-center py-4">No reason history found.</p>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-zinc-100">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setHistoryModalOpen(false);
+                setSelectedOrderForHistory(null);
+              }}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={executeDelete}
-        title="Delete Order"
+        title="Delete Delivery Order"
         itemName={orderToDelete?.name}
-        itemType="order"
+        itemType="delivery order"
       />
     </div>
   );

@@ -18,15 +18,17 @@ import { Button } from "../../components/common/Button";
 import { DeleteConfirmModal } from "../../components/common/DeleteConfirmModal";
 import { useToast } from "../../context/ToastContext";
 import { usePermission } from "../../utils/permissionUtils";
+import { getAuthenticatedUser, setAuthData } from "../../utils/authUtils";
 
 const MODULE_PERMISSIONS = [
   { module: "Dashboard", perms: ["Dashboard-view"] },
   { module: "Users List", perms: ["User-add", "User-list", "User-edit", "User-delete"] },
   { module: "Team List", perms: ["Team-add", "Team-list", "Team-edit", "Team-delete"] },
-  { module: "Roles List", perms: ["Roles-add", "Roles-list", "Roles-edit", "Roles-delete"] },
-  { module: "Lead List", perms: ["Lead-add", "Lead-transfer", "Lead-list", "Lead-edit", "Lead-delete"] },
+  { module: "Roles List", perms: ["Roles-add", "Roles-list", "Roles-edit", "Roles-delete", "Roles-export"] },
+  { module: "Lead List", perms: ["Lead-add", "Lead-transfer", "Lead-list", "Lead-edit", "Lead-delete", "Lead-export"] },
   { module: "Restore Lead", perms: ["Restore-lead-list", "Restore-lead-action"] },
-  { module: "Order List", perms: ["Order-edit", "Order-delete", "Repart-order"] },
+  { module: "Order List", perms: ["Order-edit", "Order-delete", "Order-export", "Repart-order"] },
+  { module: "Delivery List", perms: ["Delivery-edit", "Delivery-delete", "Delivery-export", "Delivery-full-access"] },
   { module: "Activity-Log", perms: ["Activity-log"] },
   { module: "Lead-Try", perms: ["Lead-try"] },
   { module: "Reminder List", perms: ["Reminder-edit", "Reminder-list"] },
@@ -34,10 +36,10 @@ const MODULE_PERMISSIONS = [
   { module: "Return Order List", perms: ["Return-order-list", "Return-order-add"] },
   { module: "Return Order Report", perms: ["Return-order-report-view", "Return-order-report-view-own", "Return-order-report-view-global"] },
   { module: "Currier List", perms: ["Currier-add", "Currier-list", "Currier-edit", "Currier-delete"] },
-  { module: "Status Master", perms: ["Status-add", "Status-list", "Status-edit", "Status-delete"] },
-  { module: "Product Master", perms: ["Product-add", "Product-list", "Product-edit", "Product-delete"] },
+  { module: "Status Master", perms: ["Status-add", "Status-list", "Status-edit", "Status-delete", "Status-export"] },
+  { module: "Product Master", perms: ["Product-add", "Product-list", "Product-edit", "Product-delete", "Product-export"] },
   { module: "Return Order Type Master", perms: ["Return-order-type-add", "Return-order-type-list", "Return-order-type-edit", "Return-order-type-delete"] },
-  { module: "Reason to Call Master", perms: ["Reason-to-call-add", "Reason-to-call-list", "Reason-to-call-edit", "Reason-to-call-delete"] },
+  { module: "Reason to Call Master", perms: ["Reason-to-call-add", "Reason-to-call-list", "Reason-to-call-edit", "Reason-to-call-delete", "Reason-to-call-export"] },
 ];
 
 export default function RolesListPage() {
@@ -121,7 +123,15 @@ export default function RolesListPage() {
       setEditOpen(false);
       clear();
       toast.success("Role updated successfully.");
-      loadRoles();
+
+      const currentUser = getAuthenticatedUser();
+      if (currentUser && currentUser.roles && currentUser.roles.includes(activeRole.name)) {
+        currentUser.permissions = selectedPerms;
+        setAuthData(currentUser);
+        window.location.reload();
+      } else {
+        loadRoles();
+      }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to update role.");
     }
@@ -194,6 +204,10 @@ export default function RolesListPage() {
   ];
 
   const handleExport = async (type: 'copy' | 'excel' | 'csv' | 'pdf') => {
+    if (!hasPermission("Roles-export")) {
+      toast.error("You do not have permission to export.");
+      return;
+    }
     try {
       setExportLoading(true);
       const rows = await exportRoles(search);
@@ -403,18 +417,20 @@ export default function RolesListPage() {
             )}
           </div>
           {/* Export Buttons */}
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => handleExport('copy')} disabled={exportLoading}
-              className={`px-3 py-1 text-[10px] font-semibold rounded border transition-all disabled:opacity-50 ${copySuccess ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
-                }`}>{copySuccess ? 'Copied!' : 'Copy'}</button>
-            <button onClick={() => handleExport('excel')} disabled={exportLoading}
-              className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">Excel</button>
-            <button onClick={() => handleExport('csv')} disabled={exportLoading}
-              className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">CSV</button>
-            <button onClick={() => handleExport('pdf')} disabled={exportLoading}
-              className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">PDF</button>
-            {exportLoading && <span className="text-[10px] text-zinc-400 ml-1">Exporting...</span>}
-          </div>
+          {hasPermission("Roles-export") && (
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => handleExport('copy')} disabled={exportLoading}
+                className={`px-3 py-1 text-[10px] font-semibold rounded border transition-all disabled:opacity-50 ${copySuccess ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+                  }`}>{copySuccess ? 'Copied!' : 'Copy'}</button>
+              <button onClick={() => handleExport('excel')} disabled={exportLoading}
+                className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">Excel</button>
+              <button onClick={() => handleExport('csv')} disabled={exportLoading}
+                className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">CSV</button>
+              <button onClick={() => handleExport('pdf')} disabled={exportLoading}
+                className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">PDF</button>
+              {exportLoading && <span className="text-[10px] text-zinc-400 ml-1">Exporting...</span>}
+            </div>
+          )}
         </div>
 
         <Table
