@@ -79,6 +79,7 @@ export interface EndPointApi {
   // Return Orders (adding if missing)
   returnOrders: string;
   returnOrderExport: string;
+  staffReturnStatsExport: string;
 
   // Activity Logs
   activityLogs: string;
@@ -168,6 +169,7 @@ const endPointApi: EndPointApi = {
   // Return Orders
   returnOrders: 'return-orders',
   returnOrderExport: 'return-orders/export',
+  staffReturnStatsExport: 'return-orders/stats/staff/export',
 
   // Activity Logs
   activityLogs: 'activity-logs',

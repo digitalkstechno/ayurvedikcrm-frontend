@@ -13,6 +13,10 @@ export const fetchStaffReturnStats = async (params = {}) => {
   return await apiGet('/return-orders/stats/staff', params);
 };
 
+export const fetchReturnOrderSummaryStats = async (params = {}) => {
+  return await apiGet('/return-orders/stats/summary', params);
+};
+
 export const createReturnOrderApi = async (data: any) => {
   return await apiPost('/return-orders', data);
 };
@@ -27,7 +31,7 @@ export const deleteReturnOrderApi = async (id: string) => {
 
 export const exportReturnOrders = async (params: any = {}): Promise<Blob> => {
   const { data } = await api.get(endPointApi.returnOrderExport, { params });
-  
+
   const formattedData = data.map((r: any, index: number) => {
     const formattedDate = r.createdAt ? (() => {
       const d = new Date(r.createdAt);
@@ -43,7 +47,7 @@ export const exportReturnOrders = async (params: any = {}): Promise<Blob> => {
       const year = String(d.getFullYear()).slice(-2);
       return `${day}/${month}/${year}`;
     })() : "-";
-    
+
     return {
       "No": index + 1,
       "Mobile Number": r.phone_number || "-",
@@ -56,6 +60,14 @@ export const exportReturnOrders = async (params: any = {}): Promise<Blob> => {
       "Type": r.type || "RTO",
     };
   });
-  
+
   return jsonToCsvBlob(formattedData);
+};
+
+export const exportStaffReturnStatsApi = async (params: any = {}): Promise<Blob> => {
+  const response = await api.get(endPointApi.staffReturnStatsExport, {
+    params,
+    responseType: 'blob'
+  });
+  return response.data;
 };
