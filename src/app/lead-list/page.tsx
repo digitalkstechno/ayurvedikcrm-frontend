@@ -458,6 +458,10 @@ export default function LeadListPage() {
   };
 
   const handleExport = async () => {
+    if (!hasPermission("Lead-export")) {
+      toast.error("You do not have permission to export.");
+      return;
+    }
     setIsExporting(true);
     try {
       const assigneeFilter = filterAssignee.includes('all') ? undefined : filterAssignee.join(',');
@@ -763,14 +767,16 @@ export default function LeadListPage() {
                 Assign Lead
               </Button>
             )}
-            <Button
-              variant="outline"
-              className="rounded-lg"
-              onClick={handleExport}
-              isLoading={isExporting}
-            >
-              Export
-            </Button>
+            {hasPermission("Lead-export") && (
+              <Button
+                variant="outline"
+                className="rounded-lg"
+                onClick={handleExport}
+                isLoading={isExporting}
+              >
+                Export
+              </Button>
+            )}
           </div>
         </div>
 

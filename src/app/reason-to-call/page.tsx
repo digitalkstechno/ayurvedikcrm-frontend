@@ -134,6 +134,10 @@ export default function ReasonToCallPage() {
   ];
 
   const handleExport = async (type: 'copy' | 'excel' | 'csv' | 'pdf') => {
+    if (!hasPermission("Reason-to-call-export")) {
+      toast.error("You do not have permission to export.");
+      return;
+    }
     try {
       setExportLoading(true);
       const rows = await exportReasonToCalls(search);
@@ -189,18 +193,20 @@ export default function ReasonToCallPage() {
             )}
           </div>
           {/* Export Buttons */}
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => handleExport('copy')} disabled={exportLoading}
-              className={`px-3 py-1 text-[10px] font-semibold rounded border transition-all disabled:opacity-50 ${copySuccess ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
-                }`}>{copySuccess ? 'Copied!' : 'Copy'}</button>
-            <button onClick={() => handleExport('excel')} disabled={exportLoading}
-              className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">Excel</button>
-            <button onClick={() => handleExport('csv')} disabled={exportLoading}
-              className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">CSV</button>
-            <button onClick={() => handleExport('pdf')} disabled={exportLoading}
-              className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">PDF</button>
-            {exportLoading && <span className="text-[10px] text-zinc-400 ml-1">Exporting...</span>}
-          </div>
+          {hasPermission("Reason-to-call-export") && (
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => handleExport('copy')} disabled={exportLoading}
+                className={`px-3 py-1 text-[10px] font-semibold rounded border transition-all disabled:opacity-50 ${copySuccess ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+                  }`}>{copySuccess ? 'Copied!' : 'Copy'}</button>
+              <button onClick={() => handleExport('excel')} disabled={exportLoading}
+                className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">Excel</button>
+              <button onClick={() => handleExport('csv')} disabled={exportLoading}
+                className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">CSV</button>
+              <button onClick={() => handleExport('pdf')} disabled={exportLoading}
+                className="px-3 py-1 text-[10px] font-semibold rounded border bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-all disabled:opacity-50">PDF</button>
+              {exportLoading && <span className="text-[10px] text-zinc-400 ml-1">Exporting...</span>}
+            </div>
+          )}
         </div>
 
         

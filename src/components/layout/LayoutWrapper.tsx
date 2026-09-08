@@ -77,8 +77,7 @@ export const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const roles = u.roles || [];
       const isBypass = roles.some((r: string) =>
-        r.toLowerCase() === 'superadmin' ||
-        r.toLowerCase() === 'admin'
+        r.toLowerCase() === 'superadmin'
       ) || u.email?.toLowerCase() === 'superadmin@gmail.com';
 
       if (isBypass) return true;
@@ -206,10 +205,11 @@ export const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
             {hasPermission("Dashboard-view") && renderLink("Dashboards", "/dashboard", <DashboardIcon className="w-4.5 h-4.5" />)}
             {hasPermission("Lead-list") && renderLink("Lead", "/lead-list", <People className="w-4.5 h-4.5" />)}
             {hasPermission("Kanban-view") && renderLink("Kanban", "/kanban-list", <ViewKanban className="w-4.5 h-4.5" />)}
-            {hasPermission("Restore-lead-list") && renderLink("Restore Lead", "/restore-data", <RestoreFromTrash className="w-4.5 h-4.5" />)}
+            {/* {hasPermission("Restore-lead-list") && renderLink("Restore Lead", "/restore-data", <RestoreFromTrash className="w-4.5 h-4.5" />)} */}
             {hasPermission("Order-edit") && renderLink("Order", "/order-list", <ShoppingCart className="w-4.5 h-4.5" />)}
+            {hasPermission("Delivery-full-access") && renderLink("Delivery", "/delivery-list", <LocalShipping className="w-4.5 h-4.5" />)}
             {hasPermission("Activity-log") && renderLink("Activity Log", "/activity-log", <History className="w-4.5 h-4.5" />)}
-            {hasPermission("Lead-try") && renderLink("Lead Try", "/task-list", <Description className="w-4.5 h-4.5" />)}
+            {/* {hasPermission("Lead-try") && renderLink("Lead Try", "/task-list", <Description className="w-4.5 h-4.5" />)} */}
             {hasPermission("Reminder-list") && renderLink("Reminder List", "/reminder-list", <Notifications className="w-4.5 h-4.5" />)}
             {hasPermission("Return-order-list") && renderLink("Return Order", "/return-order", <AssignmentReturn className="w-4.5 h-4.5" />)}
             {hasPermission("Currier-list") && renderLink("Courier", "/currier-list", <LocalShipping className="w-4.5 h-4.5" />)}
@@ -300,6 +300,7 @@ export const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
                 {hasPermission("Kanban-view") && renderLink("Kanban", "/kanban-list", <ViewKanban className="w-4.5 h-4.5" />)}
                 {hasPermission("Restore-lead-list") && renderLink("Restore Lead", "/restore-data", <RestoreFromTrash className="w-4.5 h-4.5" />)}
                 {hasPermission("Order-edit") && renderLink("Order", "/order-list", <ShoppingCart className="w-4.5 h-4.5" />)}
+                {hasPermission("Delivery-full-access") && renderLink("Delivery", "/delivery-list", <LocalShipping className="w-4.5 h-4.5" />)}
                 {hasPermission("Activity-log") && renderLink("Activity Log", "/activity-log", <History className="w-4.5 h-4.5" />)}
                 {hasPermission("Lead-try") && renderLink("Task List", "/task-list", <Description className="w-4.5 h-4.5" />)}
                 {hasPermission("Reminder-list") && renderLink("Reminder List", "/reminder-list", <Notifications className="w-4.5 h-4.5" />)}

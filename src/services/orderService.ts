@@ -8,6 +8,15 @@ export interface OrderProduct {
   quantity: number;
 }
 
+export interface StatusHistoryItem {
+  _id?: string;
+  oldStatus?: string;
+  newStatus?: string;
+  reason: string;
+  updatedBy?: string;
+  createdAt?: string;
+}
+
 export interface Order {
   _id?: string;
   leadId?: string;
@@ -24,6 +33,8 @@ export interface Order {
   transactionId?: string;
   delivery_no?: string;
   status?: string;
+  statusReason?: string;
+  statusHistory?: StatusHistoryItem[];
   createdAt?: string;
   updatedAt?: string;
 }

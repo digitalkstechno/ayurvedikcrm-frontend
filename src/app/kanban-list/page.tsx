@@ -9,7 +9,7 @@ import { LeadFormModal } from "../../components/leads/LeadFormModal";
 import { fetchProducts } from "../../services/productService";
 import { fetchReasonToCalls } from "../../services/reasonToCallService";
 import { Button } from "../../components/common/Button";
-import { FiEdit, FiPlus, FiMessageSquare, FiFileText, FiPhone, FiClock } from "react-icons/fi";
+import { FiEdit, FiPlus, FiMessageSquare, FiFileText, FiPhone, FiClock, FiMapPin, FiUser, FiGlobe } from "react-icons/fi";
 import { Select } from "../../components/common/Select";
 import { DateRangePicker } from "../../components/common/DateRangePicker";
 import { getAuthenticatedUser } from "../../utils/authUtils";
@@ -155,7 +155,7 @@ export default function KanbanListPage() {
       assginId,
       assginName:  fromObj.name  || fromLookup.name,
       assginEmail: fromObj.email || fromLookup.email,
-      remark: l.remark || l.note || "",
+      remark: l.remark || "",
       note: l.note || "",
       reasonCallName,
       subtotal: calculatedSubtotal,
@@ -796,16 +796,34 @@ export default function KanbanListPage() {
             )}
           </div>
 
-          {/* Note Section */}
-          {hoveredLeadInfo.lead.note && hoveredLeadInfo.lead.note !== hoveredLeadInfo.lead.remark && (
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-[#1f2f3e]">
-                <FiFileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span>Note:</span>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 text-slate-800 p-2 rounded-lg text-xs leading-relaxed max-h-24 overflow-y-auto whitespace-pre-line font-medium">
-                {hoveredLeadInfo.lead.note}
-              </div>
+          {/* Inquiry Source, Gender, Age */}
+          {(hoveredLeadInfo.lead.note || hoveredLeadInfo.lead.gender || hoveredLeadInfo.lead.age) && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {hoveredLeadInfo.lead.note && (
+                <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-md font-bold text-[11px] flex items-center gap-1">
+                  <FiGlobe className="w-3 h-3 text-indigo-600 shrink-0" />
+                  <span>Source: {hoveredLeadInfo.lead.note}</span>
+                </span>
+              )}
+              {hoveredLeadInfo.lead.gender && (
+                <span className="px-2 py-0.5 bg-purple-50 border border-purple-200 text-purple-800 rounded-md font-bold text-[11px] flex items-center gap-1">
+                  <FiUser className="w-3 h-3 text-purple-600 shrink-0" />
+                  <span>{hoveredLeadInfo.lead.gender}</span>
+                </span>
+              )}
+              {hoveredLeadInfo.lead.age && (
+                <span className="px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-800 rounded-md font-bold text-[11px]">
+                  Age: {hoveredLeadInfo.lead.age}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Address */}
+          {hoveredLeadInfo.lead.address && (
+            <div className="flex items-start gap-1.5 text-xs text-slate-800 bg-slate-50 border border-slate-200 p-2 rounded-lg font-medium leading-relaxed">
+              <FiMapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+              <span>{hoveredLeadInfo.lead.address}</span>
             </div>
           )}
 
