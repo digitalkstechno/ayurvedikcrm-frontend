@@ -50,8 +50,8 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={isDisabled}
       {...props}
     >
-      {isLoading && <Loader size="sm" className="mr-2" />}
-      {children}
+      {isLoading ? <span className="inline-flex items-center mr-2"><Loader size="sm" /></span> : null}
+      <span className="inline-flex items-center">{children}</span>
     </button>
   );
 };
