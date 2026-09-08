@@ -7,6 +7,8 @@ import { fetchUsers } from "../../services/userService";
 import { fetchProducts } from "../../services/productService";
 import { Button } from "../../components/common/Button";
 import { useToast } from "../../context/ToastContext";
+import { usePermission } from "../../utils/permissionUtils";
+import { getAuthenticatedUser } from "../../utils/authUtils";
 import { KeyboardArrowDown, Search, Close, AssignmentReturn, TrendingDown, Science, WaterDrop, FileDownload } from "@mui/icons-material";
 import {
   ResponsiveContainer,
@@ -167,7 +169,7 @@ function AsyncSelect({ label, placeholder, allLabel, value, onChange, fetchFn, g
       <button
         type="button"
         onClick={() => { setIsOpen(!isOpen); if (!isOpen) setSearch(""); }}
-        className="w-full flex items-center justify-between px-3 py-2 text-xs bg-white border border-border-ui rounded-lg hover:border-primary-teal/50 outline-none"
+        className="w-full flex items-center justify-between px-3 py-2 text-xs bg-white border border-border-ui rounded-lg hover:border-primary-teal/50 outline-none h-[38px]"
       >
         <span className="truncate font-medium text-text-primary">{displayText}</span>
         <KeyboardArrowDown className={`text-text-secondary transition-transform ${isOpen ? "rotate-180" : ""}`} style={{ fontSize: 18 }} />
@@ -230,6 +232,14 @@ function AsyncSelect({ label, placeholder, allLabel, value, onChange, fetchFn, g
 
 export default function StaffReturnOrderListPage() {
   const toast = useToast();
+  const { hasPermission } = usePermission();
+  const authUser = getAuthenticatedUser();
+  const isAdmin = authUser?.roles?.some((r: string) => r.toLowerCase() === 'superadmin' || r.toLowerCase() === 'admin') || authUser?.email?.toLowerCase() === 'superadmin@gmail.com';
+  const hasOwnPerm = hasPermission("Return-order-report-view-own");
+  const hasGlobalPerm = hasPermission("Return-order-report-view-global");
+  const isViewOwnUser = !isAdmin && hasOwnPerm && !hasGlobalPerm;
+  const canViewGlobal = !isViewOwnUser;
+
   const [staffStats, setStaffStats] = useState<StaffStat[]>([]);
   const [summaryStats, setSummaryStats] = useState<SummaryData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -257,14 +267,14 @@ export default function StaffReturnOrderListPage() {
         assginTo: filterStaff.includes("all") ? undefined : filterStaff.join(','),
         product: filterProduct.includes("all") ? undefined : filterProduct.join(',')
       });
-      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const url = window.URL.createObjectURL(new Blob([blob], { type: 'text/csv' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `staff_return_report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      link.setAttribute('download', `staff_return_report_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
-      toast.success("Excel report exported successfully!");
+      toast.success("CSV report exported successfully!");
     } catch (err: any) {
       toast.error("Failed to export staff return report");
     } finally {
@@ -382,36 +392,27 @@ export default function StaffReturnOrderListPage() {
     {
       key: "deliveryPercentage" as any,
       header: "Delivery %",
-      render: (_, row) => {
-        if (row.deliveryTrend === "Progress") {
-          return (
-            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 inline-flex items-center gap-1">
-              ↑ Progress
-            </span>
-          );
-        }
-        return (
-          <span className="font-semibold text-zinc-700">
-            {row.deliveryPercentage || "0%"}
-          </span>
-        );
-      }
-    },
-    {
-      key: "serumStatus" as any,
-      header: "Serum Returns",
       render: (_, row) => (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 ${row.serumStatus === "high" ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
-          {row.serumStatus === "high" ? "↑ high" : "↓ low"}
+        <span className="font-semibold text-zinc-700">
+          {row.deliveryPercentage || "0%"}
         </span>
       )
     },
     {
-      key: "oilStatus" as any,
+      key: "serumRate" as any,
+      header: "Serum Returns",
+      render: (_, row) => (
+        <span className="font-semibold text-zinc-700">
+          {row.serumRate ?? 0}%
+        </span>
+      )
+    },
+    {
+      key: "oilRate" as any,
       header: "Oil Returns",
       render: (_, row) => (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 ${row.oilStatus === "high" ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
-          {row.oilStatus === "high" ? "↑ high" : "↓ low"}
+        <span className="font-semibold text-zinc-700">
+          {row.oilRate ?? 0}%
         </span>
       )
     }
@@ -429,26 +430,28 @@ export default function StaffReturnOrderListPage() {
           <div className="flex flex-wrap items-end gap-3">
             <Button
               variant="outline"
-              className="inline-flex items-center justify-center font-bold rounded-lg transition-all outline-none focus:ring-2 focus:ring-offset-1"
+              className="inline-flex items-center justify-center font-bold rounded-lg transition-all outline-none focus:ring-2 focus:ring-offset-1 h-[38px] px-4 text-xs"
               onClick={handleExport}
               isLoading={isExporting}
             >
               Export
             </Button>
 
-            <AsyncSelect
-              label="Staff"
-              placeholder="Select Staff"
-              allLabel="All Staff"
-              value={filterStaff}
-              onChange={(val) => {
-                setFilterStaff(val);
-                loadData({ staff: val });
-              }}
-              fetchFn={fetchUsers}
-              getLabel={(u: any) => u.name}
-              getValue={(u: any) => u._id || u.id}
-            />
+            {canViewGlobal && (
+              <AsyncSelect
+                label="Staff"
+                placeholder="Select Staff"
+                allLabel="All Staff"
+                value={filterStaff}
+                onChange={(val) => {
+                  setFilterStaff(val);
+                  loadData({ staff: val });
+                }}
+                fetchFn={fetchUsers}
+                getLabel={(u: any) => u.name}
+                getValue={(u: any) => u._id || u.id}
+              />
+            )}
 
             <AsyncSelect
               label="Product"
@@ -601,7 +604,32 @@ export default function StaffReturnOrderListPage() {
                   </defs>
                   <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#71717a' }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#71717a' }} />
-                  <RechartsTooltip formatter={(val: any, name: any) => [`${val}%`, name]} />
+                  <RechartsTooltip
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white border border-zinc-200 p-2.5 rounded-lg shadow-md text-xs space-y-1.5">
+                            <div className="flex items-center justify-between gap-4 text-[#1e3a29] font-medium">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-[#1e3a29]"></span>
+                                Delivered % :
+                              </span>
+                              <span className="font-bold">{data.deliveredRate}% ({data.deliveredCount ?? 0} orders)</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4 text-rose-600 font-medium">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                                Return % :
+                              </span>
+                              <span className="font-bold">{data.returnRate}% ({data.returnCount ?? 0} orders)</span>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
                   <Area type="monotone" dataKey="deliveredRate" stroke="#1e3a29" strokeWidth={2.5} fillOpacity={1} fill="url(#colorDelivered)" name="Delivered %" />
                   <Line type="monotone" dataKey="returnRate" stroke="#be123c" strokeWidth={2.5} dot={false} name="Return %" />
                 </AreaChart>

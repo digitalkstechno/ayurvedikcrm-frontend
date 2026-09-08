@@ -32,7 +32,7 @@ const MODULE_PERMISSIONS = [
   { module: "Reminder List", perms: ["Reminder-edit", "Reminder-list"] },
   { module: "Kanban", perms: ["Kanban-view", "Kanban-update"] },
   { module: "Return Order List", perms: ["Return-order-list", "Return-order-add"] },
-  { module: "Return Order Report", perms: ["Return-order-report-view"] },
+  { module: "Return Order Report", perms: ["Return-order-report-view", "Return-order-report-view-own", "Return-order-report-view-global"] },
   { module: "Currier List", perms: ["Currier-add", "Currier-list", "Currier-edit", "Currier-delete"] },
   { module: "Status Master", perms: ["Status-add", "Status-list", "Status-edit", "Status-delete"] },
   { module: "Product Master", perms: ["Product-add", "Product-list", "Product-edit", "Product-delete"] },
@@ -153,10 +153,40 @@ export default function RolesListPage() {
   };
 
   const togglePerm = (perm: string) => {
-    setSelectedPerms(prev => ({
-      ...prev,
-      [perm]: !prev[perm]
-    }));
+    setSelectedPerms(prev => {
+      const updated = { ...prev };
+      if (perm === "Return-order-report-view") {
+        const nextState = !prev["Return-order-report-view"];
+        updated["Return-order-report-view"] = nextState;
+        if (!nextState) {
+          updated["Return-order-report-view-own"] = false;
+          updated["Return-order-report-view-global"] = false;
+        } else if (!updated["Return-order-report-view-own"] && !updated["Return-order-report-view-global"]) {
+          updated["Return-order-report-view-own"] = true;
+        }
+      } else if (perm === "Return-order-report-view-own") {
+        const nextState = !prev["Return-order-report-view-own"];
+        updated["Return-order-report-view-own"] = nextState;
+        if (nextState) {
+          updated["Return-order-report-view-global"] = false;
+          updated["Return-order-report-view"] = true;
+        } else if (!updated["Return-order-report-view-global"]) {
+          updated["Return-order-report-view"] = false;
+        }
+      } else if (perm === "Return-order-report-view-global") {
+        const nextState = !prev["Return-order-report-view-global"];
+        updated["Return-order-report-view-global"] = nextState;
+        if (nextState) {
+          updated["Return-order-report-view-own"] = false;
+          updated["Return-order-report-view"] = true;
+        } else if (!updated["Return-order-report-view-own"]) {
+          updated["Return-order-report-view"] = false;
+        }
+      } else {
+        updated[perm] = !prev[perm];
+      }
+      return updated;
+    });
   };
 
   const exportFields = [
@@ -244,13 +274,20 @@ export default function RolesListPage() {
     } else {
       const newPerms: Record<string, boolean> = {};
       allPermsList.forEach(p => {
-        newPerms[p] = true;
+        if (p === "Return-order-report-view-own") {
+          newPerms[p] = false;
+        } else {
+          newPerms[p] = true;
+        }
       });
       setSelectedPerms(newPerms);
     }
   };
 
   const isModuleAllSelected = (mod: typeof MODULE_PERMISSIONS[0]) => {
+    if (mod.module === "Return Order Report") {
+      return !!selectedPerms["Return-order-report-view"] && (!!selectedPerms["Return-order-report-view-own"] || !!selectedPerms["Return-order-report-view-global"]);
+    }
     return mod.perms.every(p => !!selectedPerms[p]);
   };
 
@@ -258,15 +295,34 @@ export default function RolesListPage() {
     const isModSelected = isModuleAllSelected(mod);
     setSelectedPerms(prev => {
       const updated = { ...prev };
-      mod.perms.forEach(p => {
+      if (mod.module === "Return Order Report") {
         if (isModSelected) {
-          delete updated[p];
+          updated["Return-order-report-view"] = false;
+          updated["Return-order-report-view-own"] = false;
+          updated["Return-order-report-view-global"] = false;
         } else {
-          updated[p] = true;
+          updated["Return-order-report-view"] = true;
+          updated["Return-order-report-view-global"] = true;
+          updated["Return-order-report-view-own"] = false;
         }
-      });
+      } else {
+        mod.perms.forEach(p => {
+          if (isModSelected) {
+            delete updated[p];
+          } else {
+            updated[p] = true;
+          }
+        });
+      }
       return updated;
     });
+  };
+
+  const getPermLabel = (perm: string) => {
+    if (perm === "Return-order-report-view") return "RETURN-ORDER-REPORT-VIEW";
+    if (perm === "Return-order-report-view-own") return "View Own";
+    if (perm === "Return-order-report-view-global") return "View Global";
+    return perm;
   };
 
   const renderPermissionsTable = () => (
@@ -312,7 +368,7 @@ export default function RolesListPage() {
                         onChange={() => togglePerm(perm)}
                         className="w-4 h-4 text-primary-teal border-zinc-300 rounded focus:ring-primary-teal cursor-pointer"
                       />
-                      <span className="text-xs uppercase tracking-tight">{perm}</span>
+                      <span className="text-xs uppercase tracking-tight">{getPermLabel(perm)}</span>
                     </label>
                   ))}
                 </div>
