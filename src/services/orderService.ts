@@ -34,6 +34,11 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
   totalPages: number;
+  stats?: {
+    delivered: number;
+    rto: number;
+    inTransit: number;
+  };
 }
 
 export interface FetchParams {

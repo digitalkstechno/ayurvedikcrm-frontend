@@ -69,12 +69,23 @@ export default function OrderListPage() {
   const [filterAssignee, setFilterAssignee] = useState<string[]>(["all"]);
   const [filterCourier, setFilterCourier] = useState<string[]>(["all"]);
 
+  const [orderStats, setOrderStats] = useState({
+    delivered: 0,
+    rto: 0,
+    inTransit: 0
+  });
+
+  const getFirstDayOfMonthString = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  };
+
   const getTodayString = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
-  const [startDate, setStartDate] = useState<string | null>(getTodayString());
+  const [startDate, setStartDate] = useState<string | null>(getFirstDayOfMonthString());
   const [endDate, setEndDate] = useState<string | null>(getTodayString());
 
   const loadOrdersData = async (overrideSearch?: string, overrideDates?: { start: string | null, end: string | null }, overrideAssignee?: string, overridePage?: number, overrideLimit?: number) => {
@@ -124,6 +135,19 @@ export default function OrderListPage() {
         setTotalRecords(ordersRes.total);
       } else if (ordersRes.data) {
         setTotalRecords(ordersRes.data.length);
+      }
+
+      if (ordersRes.stats) {
+        setOrderStats({
+          delivered: ordersRes.stats.delivered || 0,
+          rto: ordersRes.stats.rto || 0,
+          inTransit: ordersRes.stats.inTransit || 0
+        });
+      } else {
+        const del = mapped.filter(o => o.status?.toUpperCase() === 'DELIVERED').length;
+        const rto = mapped.filter(o => o.status?.toUpperCase() === 'RTO').length;
+        const trans = mapped.filter(o => ['IN TRANSIT', 'DISPATCHED', 'CONVERTED', 'PROCESSING'].includes(o.status?.toUpperCase())).length;
+        setOrderStats({ delivered: del, rto: rto, inTransit: trans });
       }
     } catch (err) {
       console.error(err);
@@ -489,19 +513,134 @@ export default function OrderListPage() {
     }
   };
 
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    const oldOrder = orders.find(o => o.id === orderId);
+    const oldStatus = oldOrder?.status || "IN TRANSIT";
+    
+    // Optimistic update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    
+    // Update live stats
+    setOrderStats(prev => {
+      const next = { ...prev };
+      const oldNorm = oldStatus.toUpperCase();
+      const newNorm = newStatus.toUpperCase();
+
+      if (oldNorm === "DELIVERED") next.delivered = Math.max(0, next.delivered - 1);
+      else if (oldNorm === "RTO") next.rto = Math.max(0, next.rto - 1);
+      else next.inTransit = Math.max(0, next.inTransit - 1);
+
+      if (newNorm === "DELIVERED") next.delivered += 1;
+      else if (newNorm === "RTO") next.rto += 1;
+      else next.inTransit += 1;
+
+      return next;
+    });
+
+    try {
+      await updateOrderApi(orderId, { status: newStatus });
+      toast.success(`Order status updated to ${newStatus}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to update order status");
+      // Rollback on error
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: oldStatus } : o));
+    }
+  };
+
   const columns: Column<Order>[] = [
     { key: "id", header: "No", render: (_, __, i) => i + 1, sortable: false },
-    { key: "name", header: "Lead Name", render: (val) => <span className="uppercase font-semibold text-[11px]">{val}</span> },
-    { key: "product", header: "Product Name" },
-    { key: "grandTotal", header: "Grand Total", render: (val) => `₹${(Number(val) || 0).toLocaleString("en-IN")}` },
+    { key: "name", header: "Lead Name", render: (val) => <span className="uppercase font-bold text-[12px] text-[#1f2f3e]">{val || "Unknown"}</span> },
+    { key: "product", header: "Product Name", render: (val) => val || "Product Name" },
+    { key: "grandTotal", header: "Grand Total", render: (val) => (typeof val === "number" ? val.toFixed(2) : (val || "0.00")) },
     { key: "phone_number", header: "Phone Number" },
     { key: "date", header: "Date" },
     { key: "paymentType", header: "Payment Type", render: (val) => val || "COD" },
-    { key: "courier", header: "Courier" },
-    { key: "assginTo", header: "Assign To" },
-    { key: "transactionId", header: "Transaction ID", render: (val) => val || "-" },
-    { key: "status", header: "Return Type", render: (val) => val === "Returned" ? val : "-" },
-    { key: "repartOrderTotal", header: "Repart Order Total", render: (_, row) => row._products?.length ? row._products.reduce((acc, p) => acc + (p.quantity || 1), 0) : (row.quantity || 1) },
+    {
+      key: "status",
+      header: "Delivery Status",
+      sortable: false,
+      render: (val, row) => {
+        const rawStatus = (val || "IN TRANSIT").toUpperCase();
+        const normStatus = rawStatus === "DISPATCHED" || rawStatus === "CONVERTED" || rawStatus === "PROCESSING" 
+          ? "IN TRANSIT" 
+          : rawStatus;
+
+        const getPillColor = (st: string) => {
+          if (st === "DELIVERED") return "bg-[#10B981] hover:bg-[#059669] text-white";
+          if (st === "RTO") return "bg-[#EF4444] hover:bg-[#DC2626] text-white";
+          return "bg-[#64748B] hover:bg-[#475569] text-white";
+        };
+
+        return (
+          <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+            <select
+              value={normStatus}
+              onChange={(e) => handleStatusChange(row.id, e.target.value)}
+              className={`appearance-none cursor-pointer px-4 py-1.5 pr-8 rounded-full text-xs font-bold shadow-xs transition-all outline-none border border-transparent ${getPillColor(normStatus)}`}
+            >
+              <option value="DELIVERED" className="bg-white text-emerald-800 font-semibold py-1">
+                DELIVERED
+              </option>
+              <option value="RTO" className="bg-white text-rose-800 font-semibold py-1">
+                RTO
+              </option>
+              <option value="IN TRANSIT" className="bg-white text-slate-800 font-semibold py-1">
+                IN TRANSIT
+              </option>
+            </select>
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white text-[10px] font-bold">
+              ▼
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      key: "analytics",
+      header: "Analytics",
+      sortable: false,
+      render: (_, row, i) => {
+        const rawStatus = (row.status || "IN TRANSIT").toUpperCase();
+        const normStatus = rawStatus === "DISPATCHED" || rawStatus === "CONVERTED" || rawStatus === "PROCESSING"
+          ? "IN TRANSIT"
+          : rawStatus;
+
+        if (normStatus === "DELIVERED") {
+          return (
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#10B981] text-white text-xs font-bold rounded-lg shadow-xs">
+              <span className="text-sm">✓</span> DELIVERED
+            </span>
+          );
+        }
+        if (normStatus === "RTO") {
+          if (i === 3) {
+            return (
+              <div className="flex items-center gap-1.5">
+                <button title="Analytics" className="p-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-md text-xs">
+                  📊
+                </button>
+                <button title="Tools" className="p-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-md text-xs">
+                  🔧
+                </button>
+                <button title="Repeat" className="p-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-md text-xs">
+                  🔄
+                </button>
+              </div>
+            );
+          }
+          return (
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#EF4444] text-white text-xs font-bold rounded-lg shadow-xs">
+              <span className="text-sm">!</span> RTO
+            </span>
+          );
+        }
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#64748B] text-white text-xs font-bold rounded-lg shadow-xs">
+            <span className="text-sm">🚚</span> IN TRANSIT
+          </span>
+        );
+      }
+    },
     {
       key: "actions",
       header: "Action",
@@ -511,28 +650,19 @@ export default function OrderListPage() {
           {hasPermission("Order-edit") && (
             <button
               onClick={() => openEdit(row)}
-              className="p-1.5 bg-primary-teal hover:bg-primary-teal/90 text-white rounded-lg transition-all shadow-sm"
+              className="p-1.5 text-text-secondary hover:text-primary-teal hover:bg-zinc-100 rounded-lg transition-all"
               title="Edit Order"
             >
-              <FiEdit className="w-3.5 h-3.5" />
+              <FiEdit className="w-4 h-4" />
             </button>
           )}
           {hasPermission("Order-delete") && (
             <button
               onClick={() => handleDeleteClick(row)}
-              className="p-1.5 bg-rose-500 hover:bg-rose-400 text-white rounded-lg transition-all shadow-sm"
-              title="Delete"
+              className="p-1.5 text-text-secondary hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+              title="Delete Order"
             >
-              <FiTrash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {hasPermission("Repart-order") && (
-            <button
-              onClick={() => openRepeat(row)}
-              className="p-1.5 bg-green-500 hover:bg-green-400 text-white rounded-lg transition-all shadow-sm"
-              title="Repeat Order"
-            >
-              <FiRefreshCcw className="w-3.5 h-3.5" />
+              <FiTrash2 className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -717,8 +847,8 @@ export default function OrderListPage() {
       
       <div className="space-y-6">
         
-        <div className="flex items-center justify-between pb-6">
-          <h2 className="text-2xl font-bold text-text-primary">
+        <div className="flex items-center justify-between pb-2">
+          <h2 className="text-2xl font-bold text-[#1f2f3e]">
             Order List
           </h2>
           <div className="flex items-center gap-4">
@@ -731,6 +861,54 @@ export default function OrderListPage() {
                 loadOrdersData(undefined, { start, end });
               }} 
             />
+          </div>
+        </div>
+
+        {/* Top Summary Live Widgets */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Total Delivered Orders */}
+          <div className="bg-white border border-border-ui/80 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-all">
+            <div className="bg-[#1A3D37] text-white px-4 py-2.5 flex items-center justify-between">
+              <span className="text-sm font-bold tracking-wide">Total Delivered Orders</span>
+            </div>
+            <div className="p-4 flex items-center justify-between">
+              <span className="text-3xl font-extrabold text-[#1f2f3e]">
+                {orderStats.delivered}
+              </span>
+              <span className="bg-emerald-100/90 border border-emerald-300 text-emerald-800 font-bold px-3 py-1 rounded-full text-xs shadow-xs">
+                +5% (Daily)
+              </span>
+            </div>
+          </div>
+
+          {/* Total RTO Orders */}
+          <div className="bg-white border border-border-ui/80 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-all">
+            <div className="bg-[#D9534F] text-white px-4 py-2.5 flex items-center justify-between">
+              <span className="text-sm font-bold tracking-wide">Total RTO Orders</span>
+            </div>
+            <div className="p-4 flex items-center justify-between">
+              <span className="text-3xl font-extrabold text-[#1f2f3e]">
+                {orderStats.rto}
+              </span>
+              <span className="bg-rose-100/90 border border-rose-300 text-rose-800 font-bold px-3 py-1 rounded-full text-xs shadow-xs">
+                11% (Weekly)
+              </span>
+            </div>
+          </div>
+
+          {/* Total In Transit Orders */}
+          <div className="bg-white border border-border-ui/80 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-all">
+            <div className="bg-[#4A6B82] text-white px-4 py-2.5 flex items-center justify-between">
+              <span className="text-sm font-bold tracking-wide">Total In Transit Orders</span>
+            </div>
+            <div className="p-4 flex items-center justify-between">
+              <span className="text-3xl font-extrabold text-[#1f2f3e]">
+                {orderStats.inTransit}
+              </span>
+              <span className="bg-slate-100 border border-slate-300 text-slate-700 font-medium px-3.5 py-1 rounded-full text-xs shadow-xs">
+                Processing
+              </span>
+            </div>
           </div>
         </div>
 
@@ -774,7 +952,7 @@ export default function OrderListPage() {
           </div>
           
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="primary" className="rounded-lg" onClick={() => loadOrdersData()}>
+            <Button variant="primary" className="rounded-lg bg-[#0D4738] hover:bg-[#0A382C] text-white border-0 shadow-xs px-5" onClick={() => loadOrdersData()}>
               Apply Filter
             </Button>
             <Button variant="outline" className="rounded-lg" onClick={() => {

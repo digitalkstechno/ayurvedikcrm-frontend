@@ -197,7 +197,7 @@ export function Table<T extends Record<string, any>>({
       <div className="w-full overflow-x-auto bg-white border border-border-ui rounded-lg shadow-soft">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-background/80 border-b border-border-ui">
+            <tr className="bg-[#F0F4F8] border-b border-border-ui">
               {selectable && (
                 <th className="p-3 w-12 text-center">
                   <input
@@ -212,7 +212,7 @@ export function Table<T extends Record<string, any>>({
                {columns.map((col, colIdx) => (
                 <th
                   key={`${col.key}-${colIdx}`}
-                  className="p-3 text-sm font-semibold tracking-wide text-text-secondary select-none"
+                  className="p-3 text-sm font-bold tracking-wide text-[#1f2f3e] select-none"
                 >
                   <div className="flex items-center gap-1.5">
                     {col.header}
