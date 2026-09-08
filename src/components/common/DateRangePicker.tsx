@@ -218,7 +218,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
     <div className="relative inline-block" ref={popoverRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-zinc-700 bg-white border border-zinc-300 rounded-lg shadow-sm hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-zinc-700 bg-white border border-zinc-300 rounded-lg shadow-sm hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500 h-[38px]"
       >
         <FiCalendar className="w-4 h-4 text-teal-600" />
         {formatDateLabel(startDate, endDate)}

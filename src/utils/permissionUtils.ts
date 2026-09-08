@@ -16,11 +16,10 @@ export const usePermission = () => {
   }, []);
 
   const hasPermission = (perm: string): boolean => {
-    const isBypass = roles.some((r: string) => 
-      r.toLowerCase() === 'superadmin' || 
+    const isBypass = roles.some((r: string) =>
+      r.toLowerCase() === 'superadmin' ||
       r.toLowerCase() === 'admin'
     ) || email.toLowerCase() === 'superadmin@gmail.com';
-    
     if (isBypass) return true;
     return !!permissions[perm];
   };
