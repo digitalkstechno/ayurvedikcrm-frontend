@@ -11,7 +11,8 @@ import { Close, CalendarToday } from "@mui/icons-material";
 import { FiEdit, FiTrash2, FiRefreshCcw, FiMessageSquare } from "react-icons/fi";
 import { fetchProducts } from "../../services/productService";
 import { fetchUsers } from "../../services/userService";
-import { fetchOrders, createOrderApi, updateOrderApi, deleteOrderApi, exportOrders, StatusHistoryItem } from "../../services/orderService";
+import { StatusHistoryItem } from "../../services/orderService";
+import { fetchDeliveries, createDeliveryApi, updateDeliveryApi, deleteDeliveryApi, exportDeliveries } from "../../services/deliveryService";
 import { usePermission } from "../../utils/permissionUtils";
 import { DeleteConfirmModal } from "../../components/common/DeleteConfirmModal";
 import { getAuthenticatedUser } from "../../utils/authUtils";
@@ -19,6 +20,7 @@ import { fetchCouriers } from "../../services/courierService";
 import { DateRangePicker } from "../../components/common/DateRangePicker";
 import { formatDateTime } from "../../utils/dateUtils";
 import { fetchReasonToCalls, ReasonToCall } from "../../services/reasonToCallService";
+import { fetchReturnOrderTypes } from "../../services/returnOrderTypeService";
 
 export interface DeliveryOrder {
   id: string;
@@ -31,6 +33,7 @@ export interface DeliveryOrder {
   subtotal: number;
   grandTotal: number;
   date: string;
+  statusDate?: string | null;
   paymentType: "COD" | "Prepaid";
   courier: string;
   assginTo: string;
@@ -83,19 +86,30 @@ export default function DeliveryListPage() {
   const [reasonError, setReasonError] = useState<string>("");
   const [isSavingStatus, setIsSavingStatus] = useState(false);
 
+  const [statusDateInput, setStatusDateInput] = useState<string>("");
+  const [returnTypeInput, setReturnTypeInput] = useState<string>("RTO");
+  const [returnTypeOptions, setReturnTypeOptions] = useState<string[]>([]);
+
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedOrderForHistory, setSelectedOrderForHistory] = useState<DeliveryOrder | null>(null);
 
   useEffect(() => {
     fetchReasonToCalls({ page: 1, limit: 100 })
-      .then(res => setReasonOptions(res.data || []))
-      .catch(() => {});
+      .then((res: any) => setReasonOptions(res.data || []))
+      .catch(() => { });
+    fetchReturnOrderTypes({ page: 1, limit: 100 })
+      .then((res: any) => {
+        if (res.data) setReturnTypeOptions(res.data.map((t: any) => t.name));
+      })
+      .catch(() => { });
   }, []);
 
   const [orderStats, setOrderStats] = useState({
     delivered: 0,
     rto: 0,
-    inTransit: 0
+    inTransit: 0,
+    deliveredGrowth: "+0% (Daily)",
+    rtoGrowth: "0% (Weekly)"
   });
 
   const getFirstDayOfMonthString = () => {
@@ -106,6 +120,16 @@ export default function DeliveryListPage() {
   const getTodayString = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const getNowDateTimeString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   const [startDate, setStartDate] = useState<string | null>(getFirstDayOfMonthString());
@@ -120,9 +144,9 @@ export default function DeliveryListPage() {
       const endToUse = overrideDates !== undefined ? overrideDates.end : endDate;
       const pageToUse = overridePage !== undefined ? overridePage : currentPage;
       const limitToUse = overrideLimit !== undefined ? overrideLimit : rowsPerPage;
-      
-      const ordersRes = await fetchOrders({ 
-        page: pageToUse, 
+
+      const ordersRes = await fetchDeliveries({
+        page: pageToUse,
         limit: limitToUse,
         search: searchToUse || undefined,
         product: filterProduct.includes('all') ? undefined : filterProduct.join(','),
@@ -142,7 +166,9 @@ export default function DeliveryListPage() {
         quantity: o.quantity || 1,
         subtotal: o.amount || 0,
         grandTotal: o.grandTotal || o.subtotal || (o.products?.length ? o.products.reduce((acc: number, p: any) => acc + (p.subtotal || (p.amount * (p.quantity || 1)) || 0), 0) : (o.amount || 0)),
-        date: formatDateTime(o.createdAt || new Date()),
+        // Show statusDate when available (set on each status change), fallback to updatedAt then createdAt
+        date: formatDateTime(o.statusDate || o.updatedAt || o.createdAt || new Date()),
+        statusDate: o.statusDate || null,
         paymentType: o.paymentType || "COD",
         courier: o.courier || "",
         assginTo: o.assginTo?.name || o.assginTo || "",
@@ -167,13 +193,15 @@ export default function DeliveryListPage() {
         setOrderStats({
           delivered: ordersRes.stats.delivered || 0,
           rto: ordersRes.stats.rto || 0,
-          inTransit: ordersRes.stats.inTransit || 0
+          inTransit: ordersRes.stats.inTransit || 0,
+          deliveredGrowth: ordersRes.stats.deliveredGrowth || "+0% (Daily)",
+          rtoGrowth: ordersRes.stats.rtoGrowth || "0% (Weekly)"
         });
       } else {
         const del = mapped.filter(o => o.status?.toUpperCase() === 'DELIVERED').length;
         const rto = mapped.filter(o => o.status?.toUpperCase() === 'RTO').length;
         const trans = mapped.filter(o => ['IN TRANSIT', 'DISPATCHED', 'CONVERTED', 'PROCESSING'].includes(o.status?.toUpperCase())).length;
-        setOrderStats({ delivered: del, rto: rto, inTransit: trans });
+        setOrderStats({ delivered: del, rto: rto, inTransit: trans, deliveredGrowth: "+0% (Daily)", rtoGrowth: "0% (Weekly)" });
       }
     } catch (err) {
       console.error(err);
@@ -351,7 +379,7 @@ export default function DeliveryListPage() {
         status: activeOrder.status || "IN TRANSIT"
       };
 
-      await updateOrderApi(activeOrder.id, payload);
+      await updateDeliveryApi(activeOrder.id, payload);
       setOrders(prev => prev.map(o => o.id === activeOrder.id ? { ...o, ...payload, _products: payload.products } : o));
       toast.success("Delivery Order updated successfully!");
       setEditOpen(false);
@@ -370,7 +398,7 @@ export default function DeliveryListPage() {
   const executeDelete = async () => {
     if (!orderToDelete) return;
     try {
-      await deleteOrderApi(orderToDelete.id);
+      await deleteDeliveryApi(orderToDelete.id);
       setOrders(prev => prev.filter(o => o.id !== orderToDelete.id));
       toast.warning("Delivery Order deleted.");
       setDeleteOpen(false);
@@ -388,7 +416,7 @@ export default function DeliveryListPage() {
     setIsExporting(true);
     try {
       const assigneeFilter = filterAssignee.includes('all') ? undefined : filterAssignee.join(',');
-      const blob = await exportOrders({
+      const blob = await exportDeliveries({
         search: searchQuery || undefined,
         product: filterProduct.includes('all') ? undefined : filterProduct.join(','),
         assginTo: assigneeFilter,
@@ -419,6 +447,9 @@ export default function DeliveryListPage() {
     setTargetOrderForStatus(order);
     setPendingStatus(newStatus);
     setStatusReasonInput("");
+    setStatusDateInput(getNowDateTimeString());
+    setReturnTypeInput("RTO");
+    setSelectedPredefinedReason("");
     setReasonError("");
     setStatusModalOpen(true);
   };
@@ -436,18 +467,26 @@ export default function DeliveryListPage() {
       const orderId = targetOrderForStatus.id;
       const oldStatus = targetOrderForStatus.status;
       const newStatus = pendingStatus;
+      const selectedDate = statusDateInput || getTodayString();
       const newHistoryItem: StatusHistoryItem = {
         oldStatus: oldStatus || "IN TRANSIT",
         newStatus: newStatus,
         reason: finalReason,
         updatedBy: currentUser?.name || currentUser?.email || "User",
-        createdAt: new Date().toISOString()
+        createdAt: new Date(selectedDate).toISOString()
       };
 
       setOrders(prev => prev.map(o => {
         if (o.id === orderId) {
           const updatedHistory = [...(o.statusHistory || []), newHistoryItem];
-          return { ...o, status: newStatus, statusReason: finalReason, statusHistory: updatedHistory };
+          return {
+            ...o,
+            status: newStatus,
+            statusReason: finalReason,
+            statusHistory: updatedHistory,
+            date: formatDateTime(selectedDate),
+            statusDate: selectedDate
+          };
         }
         return o;
       }));
@@ -468,7 +507,13 @@ export default function DeliveryListPage() {
         return next;
       });
 
-      await updateOrderApi(orderId, { status: newStatus, statusReason: finalReason });
+      await updateDeliveryApi(orderId, {
+        status: newStatus,
+        statusReason: finalReason,
+        statusDate: selectedDate,
+        returnType: returnTypeInput || "RTO"
+      });
+
       toast.success(`Delivery status updated to ${newStatus}`);
       setStatusModalOpen(false);
       setTargetOrderForStatus(null);
@@ -488,7 +533,7 @@ export default function DeliveryListPage() {
     { key: "product", header: "Product Name", render: (val) => val || "Product Name" },
     { key: "grandTotal", header: "Grand Total", render: (val) => (typeof val === "number" ? val.toFixed(2) : (val || "0.00")) },
     { key: "phone_number", header: "Phone Number" },
-    { key: "date", header: "Date" },
+    { key: "date", header: "Status Date" },
     { key: "paymentType", header: "Payment Type", render: (val) => val || "COD" },
     {
       key: "status",
@@ -558,21 +603,6 @@ export default function DeliveryListPage() {
           );
         }
         if (normStatus === "RTO") {
-          if (i === 3) {
-            return (
-              <div className="flex items-center gap-1.5">
-                <button title="Analytics" className="p-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-md text-xs">
-                  📊
-                </button>
-                <button title="Tools" className="p-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-md text-xs">
-                  🔧
-                </button>
-                <button title="Repeat" className="p-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-md text-xs">
-                  🔄
-                </button>
-              </div>
-            );
-          }
           return (
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#EF4444] text-white text-xs font-bold rounded-lg shadow-xs">
               <span className="text-sm">!</span> RTO
@@ -810,14 +840,14 @@ export default function DeliveryListPage() {
             Delivery List
           </h2>
           <div className="flex items-center gap-4">
-            <DateRangePicker 
-              startDate={startDate} 
-              endDate={endDate} 
+            <DateRangePicker
+              startDate={startDate}
+              endDate={endDate}
               onChange={(start, end) => {
                 setStartDate(start);
                 setEndDate(end);
                 loadOrdersData(undefined, { start, end });
-              }} 
+              }}
             />
           </div>
         </div>
@@ -833,8 +863,11 @@ export default function DeliveryListPage() {
               <span className="text-3xl font-extrabold text-[#1f2f3e]">
                 {orderStats.delivered}
               </span>
-              <span className="bg-emerald-100/90 border border-emerald-300 text-emerald-800 font-bold px-3 py-1 rounded-full text-xs shadow-xs">
-                +5% (Daily)
+              <span className={`font-bold px-3 py-1 rounded-full text-xs shadow-xs ${(orderStats.deliveredGrowth || "").includes("-")
+                ? "bg-rose-100/90 border border-rose-300 text-rose-800"
+                : "bg-emerald-100/90 border border-emerald-300 text-emerald-800"
+                }`}>
+                {orderStats.deliveredGrowth || "+0% (Daily)"}
               </span>
             </div>
           </div>
@@ -848,8 +881,11 @@ export default function DeliveryListPage() {
               <span className="text-3xl font-extrabold text-[#1f2f3e]">
                 {orderStats.rto}
               </span>
-              <span className="bg-rose-100/90 border border-rose-300 text-rose-800 font-bold px-3 py-1 rounded-full text-xs shadow-xs">
-                11% (Weekly)
+              <span className={`font-bold px-3 py-1 rounded-full text-xs shadow-xs ${(orderStats.rtoGrowth || "").includes("-")
+                ? "bg-emerald-100/90 border border-emerald-300 text-emerald-800"
+                : "bg-rose-100/90 border border-rose-300 text-rose-800"
+                }`}>
+                {orderStats.rtoGrowth || "0% (Weekly)"}
               </span>
             </div>
           </div>
@@ -909,7 +945,7 @@ export default function DeliveryListPage() {
               ]}
             />
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="primary" className="rounded-lg bg-[#0D4738] hover:bg-[#0A382C] text-white border-0 shadow-xs px-5" onClick={() => loadOrdersData()}>
               Apply Filter
@@ -941,26 +977,26 @@ export default function DeliveryListPage() {
         </div>
 
         {/* Table database */}
-        <Table 
-           data={orders} 
-           columns={columns} 
-           selectable={false}
-           isLoading={isFetchingData} 
-           searchable={true}
-           onSearchChange={(val) => {
-             setSearchQuery(val);
-             setCurrentPage(1);
-             loadOrdersData(val, undefined, undefined, 1, rowsPerPage);
-           }}
-           serverSide={true}
-           totalCount={totalRecords}
-           currentPage={currentPage}
-           rowsPerPage={rowsPerPage}
-           onPageChange={(page, limit) => {
-             setCurrentPage(page);
-             setRowsPerPage(limit);
-             loadOrdersData(undefined, undefined, undefined, page, limit);
-           }}
+        <Table
+          data={orders}
+          columns={columns}
+          selectable={false}
+          isLoading={isFetchingData}
+          searchable={true}
+          onSearchChange={(val) => {
+            setSearchQuery(val);
+            setCurrentPage(1);
+            loadOrdersData(val, undefined, undefined, 1, rowsPerPage);
+          }}
+          serverSide={true}
+          totalCount={totalRecords}
+          currentPage={currentPage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={(page, limit) => {
+            setCurrentPage(page);
+            setRowsPerPage(limit);
+            loadOrdersData(undefined, undefined, undefined, page, limit);
+          }}
         />
       </div>
 
@@ -1008,11 +1044,17 @@ export default function DeliveryListPage() {
       <Modal
         isOpen={statusModalOpen}
         onClose={() => {
-          setStatusModalOpen(false);
-          setTargetOrderForStatus(null);
+          if (!isSavingStatus) {
+            setStatusModalOpen(false);
+            setTargetOrderForStatus(null);
+            setStatusReasonInput("");
+            setSelectedPredefinedReason("");
+            setReasonError("");
+          }
         }}
-        title="Reason for Delivery Status Change"
+        title={`Change Delivery Status - Order #${targetOrderForStatus?.id.slice(-6).toUpperCase() || ''}`}
         sizeClass="max-w-md"
+        isLoading={isSavingStatus}
       >
         <div className="space-y-4 text-left py-1">
           <div className="bg-zinc-50 p-3 rounded-lg border border-zinc-200 text-xs space-y-1.5">
@@ -1026,17 +1068,31 @@ export default function DeliveryListPage() {
             </div>
             <div className="flex justify-between items-center pt-1.5 border-t border-zinc-200">
               <span className="font-semibold text-zinc-500">Changing Status To:</span>
-              <span className={`px-2.5 py-0.5 rounded-full font-extrabold text-[11px] text-white ${
-                pendingStatus === "DELIVERED" ? "bg-[#10B981]" : pendingStatus === "RTO" ? "bg-[#EF4444]" : "bg-[#64748B]"
-              }`}>
+              <span className={`px-2.5 py-0.5 rounded-full font-extrabold text-[11px] text-white ${pendingStatus === "DELIVERED" ? "bg-[#10B981]" : pendingStatus === "RTO" ? "bg-[#EF4444]" : "bg-[#64748B]"
+                }`}>
                 {pendingStatus}
               </span>
             </div>
           </div>
 
+          {/* Status Change Date & Time (Delivery Only) */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-zinc-700 uppercase tracking-wide">
+              Status Change Date & Time <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={statusDateInput}
+              onChange={(e) => setStatusDateInput(e.target.value)}
+              className="w-full p-2.5 text-xs font-semibold border border-zinc-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent outline-none bg-white text-zinc-800"
+            />
+          </div>
+
+
+          {/* Reason / Remark Input */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-zinc-700 uppercase tracking-wide">
-              Reason <span className="text-rose-500">*</span>
+              Reason / Remark <span className="text-rose-500">*</span>
             </label>
             <textarea
               value={statusReasonInput}
@@ -1070,7 +1126,7 @@ export default function DeliveryListPage() {
               onClick={confirmStatusChange}
               isLoading={isSavingStatus}
             >
-              Save Reason
+              Save Status & Date
             </Button>
           </div>
         </div>
@@ -1108,10 +1164,9 @@ export default function DeliveryListPage() {
                         {item.oldStatus || "IN TRANSIT"}
                       </span>
                       <span className="text-zinc-400">➔</span>
-                      <span className={`px-2 py-0.5 text-white rounded text-[11px] font-extrabold ${
-                        (item.newStatus || "").toUpperCase() === "DELIVERED" ? "bg-emerald-600" :
+                      <span className={`px-2 py-0.5 text-white rounded text-[11px] font-extrabold ${(item.newStatus || "").toUpperCase() === "DELIVERED" ? "bg-emerald-600" :
                         (item.newStatus || "").toUpperCase() === "RTO" ? "bg-rose-600" : "bg-slate-600"
-                      }`}>
+                        }`}>
                         {item.newStatus || "IN TRANSIT"}
                       </span>
                     </div>

@@ -72,7 +72,9 @@ export default function OrderListPage() {
   const [orderStats, setOrderStats] = useState({
     delivered: 0,
     rto: 0,
-    inTransit: 0
+    inTransit: 0,
+    deliveredGrowth: "+0% (Daily)",
+    rtoGrowth: "0% (Weekly)"
   });
 
   const getFirstDayOfMonthString = () => {
@@ -97,9 +99,9 @@ export default function OrderListPage() {
       const endToUse = overrideDates !== undefined ? overrideDates.end : endDate;
       const pageToUse = overridePage !== undefined ? overridePage : currentPage;
       const limitToUse = overrideLimit !== undefined ? overrideLimit : rowsPerPage;
-      
-      const ordersRes = await fetchOrders({ 
-        page: pageToUse, 
+
+      const ordersRes = await fetchOrders({
+        page: pageToUse,
         limit: limitToUse,
         search: searchToUse || undefined,
         product: filterProduct.includes('all') ? undefined : filterProduct.join(','),
@@ -141,13 +143,15 @@ export default function OrderListPage() {
         setOrderStats({
           delivered: ordersRes.stats.delivered || 0,
           rto: ordersRes.stats.rto || 0,
-          inTransit: ordersRes.stats.inTransit || 0
+          inTransit: ordersRes.stats.inTransit || 0,
+          deliveredGrowth: ordersRes.stats.deliveredGrowth || "+0% (Daily)",
+          rtoGrowth: ordersRes.stats.rtoGrowth || "0% (Weekly)"
         });
       } else {
         const del = mapped.filter(o => o.status?.toUpperCase() === 'DELIVERED').length;
         const rto = mapped.filter(o => o.status?.toUpperCase() === 'RTO').length;
         const trans = mapped.filter(o => ['IN TRANSIT', 'DISPATCHED', 'CONVERTED', 'PROCESSING'].includes(o.status?.toUpperCase())).length;
-        setOrderStats({ delivered: del, rto: rto, inTransit: trans });
+        setOrderStats({ delivered: del, rto: rto, inTransit: trans, deliveredGrowth: "+0% (Daily)", rtoGrowth: "0% (Weekly)" });
       }
     } catch (err) {
       console.error(err);
@@ -214,7 +218,7 @@ export default function OrderListPage() {
     try {
       const created = await createOrderApi(o as any);
       const createdId = (created as any)._id || Date.now().toString();
-      
+
       setOrders(prev => {
         const existingIdx = prev.findIndex(p => p.id === createdId);
         if (existingIdx >= 0) {
@@ -258,10 +262,10 @@ export default function OrderListPage() {
   const [txnId, setTxnId] = useState("");
   const [courier, setCourier] = useState("");
   const [deliveryNo, setDeliveryNo] = useState("");
-  
+
   const [modalSelectedProducts, setModalSelectedProducts] = useState<SelectedProductRow[]>([]);
   const [modalProductSelect, setModalProductSelect] = useState("");
-  
+
   const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
   const [isRepeatingOrder, setIsRepeatingOrder] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -318,7 +322,7 @@ export default function OrderListPage() {
     setTxnId(order.transactionId || "");
     setCourier(order.courier || "");
     setDeliveryNo(order.delivery_no || "");
-    
+
     const rawProducts: any[] = order._products || [];
     if (rawProducts.length > 0) {
       setModalSelectedProducts(rawProducts.map((p: any) => ({
@@ -520,10 +524,10 @@ export default function OrderListPage() {
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const oldOrder = orders.find(o => o.id === orderId);
     const oldStatus = oldOrder?.status || "IN TRANSIT";
-    
+
     // Optimistic update
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-    
+
     // Update live stats
     setOrderStats(prev => {
       const next = { ...prev };
@@ -565,8 +569,8 @@ export default function OrderListPage() {
       sortable: false,
       render: (val, row) => {
         const rawStatus = (val || "IN TRANSIT").toUpperCase();
-        const normStatus = rawStatus === "DISPATCHED" || rawStatus === "CONVERTED" || rawStatus === "PROCESSING" 
-          ? "IN TRANSIT" 
+        const normStatus = rawStatus === "DISPATCHED" || rawStatus === "CONVERTED" || rawStatus === "PROCESSING"
+          ? "IN TRANSIT"
           : rawStatus;
 
         const getPillColor = (st: string) => {
@@ -617,21 +621,6 @@ export default function OrderListPage() {
           );
         }
         if (normStatus === "RTO") {
-          if (i === 3) {
-            return (
-              <div className="flex items-center gap-1.5">
-                <button title="Analytics" className="p-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-md text-xs">
-                  📊
-                </button>
-                <button title="Tools" className="p-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-md text-xs">
-                  🔧
-                </button>
-                <button title="Repeat" className="p-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-md text-xs">
-                  🔄
-                </button>
-              </div>
-            );
-          }
           return (
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#EF4444] text-white text-xs font-bold rounded-lg shadow-xs">
               <span className="text-sm">!</span> RTO
@@ -848,22 +837,22 @@ export default function OrderListPage() {
 
   return (
     <div className="space-y-6">
-      
+
       <div className="space-y-6">
-        
+
         <div className="flex items-center justify-between pb-2">
           <h2 className="text-2xl font-bold text-[#1f2f3e]">
             Order List
           </h2>
           <div className="flex items-center gap-4">
-            <DateRangePicker 
-              startDate={startDate} 
-              endDate={endDate} 
+            <DateRangePicker
+              startDate={startDate}
+              endDate={endDate}
               onChange={(start, end) => {
                 setStartDate(start);
                 setEndDate(end);
                 loadOrdersData(undefined, { start, end });
-              }} 
+              }}
             />
           </div>
         </div>
@@ -879,8 +868,11 @@ export default function OrderListPage() {
               <span className="text-3xl font-extrabold text-[#1f2f3e]">
                 {orderStats.delivered}
               </span>
-              <span className="bg-emerald-100/90 border border-emerald-300 text-emerald-800 font-bold px-3 py-1 rounded-full text-xs shadow-xs">
-                +5% (Daily)
+              <span className={`font-bold px-3 py-1 rounded-full text-xs shadow-xs ${(orderStats.deliveredGrowth || "").includes("-")
+                  ? "bg-rose-100/90 border border-rose-300 text-rose-800"
+                  : "bg-emerald-100/90 border border-emerald-300 text-emerald-800"
+                }`}>
+                {orderStats.deliveredGrowth || "+0% (Daily)"}
               </span>
             </div>
           </div>
@@ -894,8 +886,11 @@ export default function OrderListPage() {
               <span className="text-3xl font-extrabold text-[#1f2f3e]">
                 {orderStats.rto}
               </span>
-              <span className="bg-rose-100/90 border border-rose-300 text-rose-800 font-bold px-3 py-1 rounded-full text-xs shadow-xs">
-                11% (Weekly)
+              <span className={`font-bold px-3 py-1 rounded-full text-xs shadow-xs ${(orderStats.rtoGrowth || "").includes("-")
+                  ? "bg-emerald-100/90 border border-emerald-300 text-emerald-800"
+                  : "bg-rose-100/90 border border-rose-300 text-rose-800"
+                }`}>
+                {orderStats.rtoGrowth || "0% (Weekly)"}
               </span>
             </div>
           </div>
@@ -954,7 +949,7 @@ export default function OrderListPage() {
               ]}
             />
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="primary" className="rounded-lg bg-[#0D4738] hover:bg-[#0A382C] text-white border-0 shadow-xs px-5" onClick={() => loadOrdersData()}>
               Apply Filter
@@ -986,26 +981,26 @@ export default function OrderListPage() {
         </div>
 
         {/* Table database */}
-        <Table 
-           data={filteredOrders} 
-           columns={columns} 
-           selectable={false}
-           isLoading={isFetchingData} 
-           searchable={true}
-           onSearchChange={(val) => {
-             setSearchQuery(val);
-             setCurrentPage(1);
-             loadOrdersData(val, undefined, undefined, 1, rowsPerPage);
-           }}
-           serverSide={true}
-           totalCount={totalRecords}
-           currentPage={currentPage}
-           rowsPerPage={rowsPerPage}
-           onPageChange={(page, limit) => {
-             setCurrentPage(page);
-             setRowsPerPage(limit);
-             loadOrdersData(undefined, undefined, undefined, page, limit);
-           }}
+        <Table
+          data={filteredOrders}
+          columns={columns}
+          selectable={false}
+          isLoading={isFetchingData}
+          searchable={true}
+          onSearchChange={(val) => {
+            setSearchQuery(val);
+            setCurrentPage(1);
+            loadOrdersData(val, undefined, undefined, 1, rowsPerPage);
+          }}
+          serverSide={true}
+          totalCount={totalRecords}
+          currentPage={currentPage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={(page, limit) => {
+            setCurrentPage(page);
+            setRowsPerPage(limit);
+            loadOrdersData(undefined, undefined, undefined, page, limit);
+          }}
         />
       </div>
 

@@ -81,6 +81,13 @@ export interface EndPointApi {
   returnOrderExport: string;
   staffReturnStatsExport: string;
 
+  // Deliveries
+  deliveries: string;
+  deliveryCreate: string;
+  deliveryUpdate: string;
+  deliveryDelete: string;
+  deliveryExport: string;
+
   // Activity Logs
   activityLogs: string;
 
@@ -170,6 +177,13 @@ const endPointApi: EndPointApi = {
   returnOrders: 'return-orders',
   returnOrderExport: 'return-orders/export',
   staffReturnStatsExport: 'return-orders/stats/staff/export',
+
+  // Deliveries
+  deliveries: 'deliveries',
+  deliveryCreate: 'deliveries',
+  deliveryUpdate: 'deliveries',
+  deliveryDelete: 'deliveries',
+  deliveryExport: 'deliveries/export',
 
   // Activity Logs
   activityLogs: 'activity-logs',

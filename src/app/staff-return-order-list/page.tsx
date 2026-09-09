@@ -36,8 +36,10 @@ interface StaffStat {
   deliveryTrend?: string;
   serumStatus?: string;
   serumReturnsCount?: number;
+  serumRate?: number;
   oilStatus?: string;
   oilReturnsCount?: number;
+  oilRate?: number;
 }
 
 interface SummaryData {
@@ -259,6 +261,10 @@ export default function StaffReturnOrderListPage() {
   const [filterProduct, setFilterProduct] = useState<string[]>(["all"]);
 
   const handleExport = async () => {
+    if (!hasPermission("Return-order-report-export")) {
+      toast.error("You do not have permission to export.");
+      return;
+    }
     setIsExporting(true);
     try {
       const blob = await exportStaffReturnStatsApi({
@@ -428,14 +434,16 @@ export default function StaffReturnOrderListPage() {
           </h2>
 
           <div className="flex flex-wrap items-end gap-3">
-            <Button
-              variant="outline"
-              className="inline-flex items-center justify-center font-bold rounded-lg transition-all outline-none focus:ring-2 focus:ring-offset-1 h-[38px] px-4 text-xs"
-              onClick={handleExport}
-              isLoading={isExporting}
-            >
-              Export
-            </Button>
+            {hasPermission("Return-order-report-export") && (
+              <Button
+                variant="outline"
+                className="inline-flex items-center justify-center font-bold rounded-lg transition-all outline-none focus:ring-2 focus:ring-offset-1 h-[38px] px-4 text-xs"
+                onClick={handleExport}
+                isLoading={isExporting}
+              >
+                Export
+              </Button>
+            )}
 
             {canViewGlobal && (
               <AsyncSelect

@@ -34,7 +34,7 @@ const MODULE_PERMISSIONS = [
   { module: "Reminder List", perms: ["Reminder-edit", "Reminder-list"] },
   { module: "Kanban", perms: ["Kanban-view", "Kanban-update"] },
   { module: "Return Order List", perms: ["Return-order-list", "Return-order-add"] },
-  { module: "Return Order Report", perms: ["Return-order-report-view", "Return-order-report-view-own", "Return-order-report-view-global"] },
+  { module: "Return Order Report", perms: ["Return-order-report-view", "Return-order-report-view-own", "Return-order-report-view-global", "Return-order-report-export"] },
   { module: "Currier List", perms: ["Currier-add", "Currier-list", "Currier-edit", "Currier-delete"] },
   { module: "Status Master", perms: ["Status-add", "Status-list", "Status-edit", "Status-delete", "Status-export"] },
   { module: "Product Master", perms: ["Product-add", "Product-list", "Product-edit", "Product-delete", "Product-export"] },

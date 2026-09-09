@@ -49,6 +49,8 @@ export interface PaginatedResponse<T> {
     delivered: number;
     rto: number;
     inTransit: number;
+    deliveredGrowth?: string;
+    rtoGrowth?: string;
   };
 }
 
@@ -89,7 +91,7 @@ export const deleteOrderApi = async (id: string): Promise<void> => {
 // GET /api/orders/export
 export const exportOrders = async (params?: FetchParams): Promise<Blob> => {
   const { data } = await api.get(endPointApi.orderExport, { params });
-  
+
   const formattedData = data.map((order: any, index: number) => ({
     "No": index + 1,
     "Lead Name": order.name || "-",
@@ -97,11 +99,11 @@ export const exportOrders = async (params?: FetchParams): Promise<Blob> => {
     "Grand Total": order.grandTotal || order.amount || 0,
     "Phone Number": order.phone_number || "-",
     "Date": order.createdAt ? (() => {
-        const d = new Date(order.createdAt);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = String(d.getFullYear()).slice(-2);
-        return `${day}/${month}/${year}`;
+      const d = new Date(order.createdAt);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = String(d.getFullYear()).slice(-2);
+      return `${day}/${month}/${year}`;
     })() : "-",
     "Payment Type": order.paymentType || "COD",
     "Courier": order.courier || "-",
