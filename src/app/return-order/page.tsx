@@ -67,6 +67,30 @@ export default function ReturnOrderPage() {
   const [filterType, setFilterType] = useState<string[]>(["all"]);
   const [filterProduct, setFilterProduct] = useState<string[]>(["all"]);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [updatingTypeId, setUpdatingTypeId] = useState<string | null>(null);
+
+  const handleTypeChange = async (order: ReturnOrder, newType: string) => {
+    const normCurrent = (order.type || "RTO").toUpperCase();
+    const normNew = newType.toUpperCase();
+    if (normCurrent === normNew) return;
+
+    try {
+      setUpdatingTypeId(order.id);
+      await updateReturnOrderApi(order.id, { type: normNew, status: normNew });
+
+      if (normNew === "DELIVERED" || normNew === "IN TRANSIT") {
+        setReturnOrders(prev => prev.filter(r => r.id !== order.id));
+        setTotalRecords(prev => Math.max(0, prev - 1));
+      } else {
+        setReturnOrders(prev => prev.map(r => r.id === order.id ? { ...r, type: normNew } : r));
+      }
+      toast.success("Status updated successfully");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to update return order type");
+    } finally {
+      setUpdatingTypeId(null);
+    }
+  };
 
   const loadReturnOrdersData = async (searchOverride?: string, overrideDates?: { start?: string | null, end?: string | null, orderStart?: string | null, orderEnd?: string | null }, overridePage?: number, overrideLimit?: number) => {
     try {
@@ -356,7 +380,45 @@ export default function ReturnOrderPage() {
     { key: "amount", header: "Amount" },
     { key: "returnDate", header: "Return Order Date" },
     { key: "customerName", header: "Customer Name" },
-    { key: "type", header: "Type", render: () => "RTO" },
+    {
+      key: "type",
+      header: "Type",
+      sortable: false,
+      render: (val, row) => {
+        const rawType = (val || row.type || "RTO").toUpperCase();
+        const normType = rawType === "DELIVERY" ? "DELIVERED" : rawType;
+
+        const getPillColor = (st: string) => {
+          if (st === "DELIVERED") return "bg-[#10B981] hover:bg-[#059669] text-white";
+          if (st === "RTO") return "bg-[#EF4444] hover:bg-[#DC2626] text-white";
+          return "bg-[#64748B] hover:bg-[#475569] text-white";
+        };
+
+        return (
+          <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+            <select
+              value={normType}
+              onChange={(e) => handleTypeChange(row, e.target.value)}
+              disabled={updatingTypeId === row.id}
+              className={`appearance-none cursor-pointer px-4 py-1.5 pr-8 rounded-full text-xs font-bold shadow-xs transition-all outline-none border border-transparent ${getPillColor(normType)} ${updatingTypeId === row.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <option value="DELIVERED" className="bg-white text-emerald-800 font-semibold py-1">
+                DELIVERED
+              </option>
+              <option value="RTO" className="bg-white text-rose-800 font-semibold py-1">
+                RTO
+              </option>
+              <option value="IN TRANSIT" className="bg-white text-slate-800 font-semibold py-1">
+                IN TRANSIT
+              </option>
+            </select>
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white text-[10px] font-bold">
+              ▼
+            </span>
+          </div>
+        );
+      }
+    },
     {
       key: "actions",
       header: "Action",
