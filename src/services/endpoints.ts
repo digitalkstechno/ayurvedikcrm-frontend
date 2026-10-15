@@ -93,7 +93,10 @@ export interface EndPointApi {
 
   // Dashboard
   dashboardStats: string;
+  dashboardExportLeads: string;
+  dashboardExportOrders: string;
 }
+
 
 const endPointApi: EndPointApi = {
   // Products
@@ -190,6 +193,9 @@ const endPointApi: EndPointApi = {
 
   // Dashboard
   dashboardStats: 'dashboard/stats',
+  dashboardExportLeads: 'dashboard/export/leads',
+  dashboardExportOrders: 'dashboard/export/orders',
 };
 
 export default endPointApi;
+
