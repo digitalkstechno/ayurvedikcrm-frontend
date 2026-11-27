@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { isAuthenticated as checkIsAuthenticated, getAuthenticatedUser, setAuthData, clearAuthData } from "../../utils/authUtils";
 import { apiGet, endPointApi } from "../../services/api";
+import { NotificationBell } from "./NotificationBell";
 import { useSettings } from "../../context/SettingsContext";
 
 import { ToastProvider } from "../../context/ToastContext";
@@ -448,7 +449,8 @@ export const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
             </div>
 
             {/* Exact Right Header User Info display matching screenshot */}
-            <div className="flex items-center gap-5 relative" ref={profileDropdownRef}>
+            <div className="flex items-center gap-3 relative" ref={profileDropdownRef}>
+              <NotificationBell />
               <div
                 className="flex items-center gap-3 p-1 group cursor-pointer"
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}

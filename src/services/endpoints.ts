@@ -99,6 +99,10 @@ export interface EndPointApi {
   // Activity Logs
   activityLogs: string;
 
+  // Notifications
+  notifications: string;
+  notificationReadAll: string;
+
   // Dashboard
   dashboardStats: string;
   dashboardExportLeads: string;
@@ -206,6 +210,10 @@ const endPointApi: EndPointApi = {
 
   // Activity Logs
   activityLogs: 'activity-logs',
+
+  // Notifications
+  notifications: 'notifications',
+  notificationReadAll: 'notifications/read-all',
 
   // Dashboard
   dashboardStats: 'dashboard/stats',
