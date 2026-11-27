@@ -37,6 +37,7 @@ const MODULE_PERMISSIONS = [
   { module: "Return Order Report", perms: ["Return-order-report-view", "Return-order-report-view-own", "Return-order-report-view-global", "Return-order-report-export"] },
   { module: "Currier List", perms: ["Currier-add", "Currier-list", "Currier-edit", "Currier-delete"] },
   { module: "Status Master", perms: ["Status-add", "Status-list", "Status-edit", "Status-delete", "Status-export"] },
+  { module: "Lead Status Master", perms: ["Lead-status-add", "Lead-status-list", "Lead-status-edit", "Lead-status-delete", "Lead-status-export"] },
   { module: "Product Master", perms: ["Product-add", "Product-list", "Product-edit", "Product-delete", "Product-export"] },
   { module: "Return Order Type Master", perms: ["Return-order-type-add", "Return-order-type-list", "Return-order-type-edit", "Return-order-type-delete"] },
   { module: "Reason to Call Master", perms: ["Reason-to-call-add", "Reason-to-call-list", "Reason-to-call-edit", "Reason-to-call-delete", "Reason-to-call-export"] },

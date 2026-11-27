@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { isAuthenticated as checkIsAuthenticated, getAuthenticatedUser, clearAuthData } from "../../utils/authUtils";
+import { isAuthenticated as checkIsAuthenticated, getAuthenticatedUser, setAuthData, clearAuthData } from "../../utils/authUtils";
+import { apiGet, endPointApi } from "../../services/api";
 import { useSettings } from "../../context/SettingsContext";
 
 import { ToastProvider } from "../../context/ToastContext";
@@ -122,6 +123,57 @@ export const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [pathname, router]);
 
+  // Sync latest user roles & permissions on page load/navigation and tab return
+  useEffect(() => {
+    const isPublicPath = pathname === "/login" || pathname === "/" || pathname === "/forgot-password" || pathname === "/reset-password";
+    if (isPublicPath || !checkIsAuthenticated()) return;
+
+    const refreshPermissions = async () => {
+      if (typeof window === "undefined" || !localStorage.getItem("wrixty_token")) return;
+      try {
+        const { data } = await apiGet(endPointApi.authMe);
+        if (data) {
+          const existing = getAuthenticatedUser() || {};
+          const permsChanged = JSON.stringify(existing.permissions || {}) !== JSON.stringify(data.permissions || {});
+          const rolesChanged = JSON.stringify(existing.roles || []) !== JSON.stringify(data.roles || []);
+          if (permsChanged || rolesChanged || existing.name !== data.name || existing.email !== data.email) {
+            const updatedUser = {
+              ...existing,
+              _id: data._id ?? existing._id,
+              name: data.name ?? existing.name,
+              email: data.email ?? existing.email,
+              roles: data.roles ?? existing.roles,
+              permissions: data.permissions ?? existing.permissions,
+            };
+            setAuthData(updatedUser);
+            setCurrentUser({
+              name: updatedUser.name || "Admin",
+              email: updatedUser.email || "superadmin@gmail.com",
+              avatar: updatedUser.name ? updatedUser.name.charAt(0).toUpperCase() : "A",
+              check_photo: updatedUser.check_photo,
+              permissions: updatedUser.permissions || {}
+            });
+            window.dispatchEvent(new Event("auth-permissions-updated"));
+          }
+        }
+      } catch {
+        // Ignore transient errors; 401 is handled by api interceptor
+      }
+    };
+
+    refreshPermissions();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshPermissions();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [pathname]);
+
   const handleLogout = () => {
     clearAuthData();
     setIsAuthenticated(false);
@@ -239,7 +291,7 @@ export const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
             )}
 
             {/* Collapsible Master Menu */}
-            {(hasPermission("Status-list") || hasPermission("Product-list") || hasPermission("Return-order-type-list") || hasPermission("Reason-to-call-list")) && (
+            {(hasPermission("Status-list") || hasPermission("Lead-status-list") || hasPermission("Product-list") || hasPermission("Return-order-type-list") || hasPermission("Reason-to-call-list")) && (
               <div className="space-y-1 text-left">
                 <button
                   onClick={() => setMasterOpen(!masterOpen)}
@@ -254,6 +306,7 @@ export const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
                 {masterOpen && (
                   <div className="border-l-2 border-primary-teal/50 ml-6 pl-4 space-y-1 animate-fade-in text-left">
                     {hasPermission("Status-list") && renderSubLink("Status", "/status")}
+                    {hasPermission("Lead-status-list") && renderSubLink("Lead Status", "/lead-status")}
                     {hasPermission("Product-list") && renderSubLink("Product", "/product")}
                     {hasPermission("Return-order-type-list") && renderSubLink("Return Order Type", "/return-order-type")}
                     {hasPermission("Reason-to-call-list") && renderSubLink("Reason to Call", "/reason-to-call")}
@@ -332,7 +385,7 @@ export const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
                 )}
 
                 {/* Collapsible Mobile Master */}
-                {(hasPermission("Status-list") || hasPermission("Product-list") || hasPermission("Return-order-type-list") || hasPermission("Reason-to-call-list")) && (
+                {(hasPermission("Status-list") || hasPermission("Lead-status-list") || hasPermission("Product-list") || hasPermission("Return-order-type-list") || hasPermission("Reason-to-call-list")) && (
                   <div className="space-y-1 text-left">
                     <button
                       onClick={() => setMasterOpen(!masterOpen)}
@@ -347,6 +400,7 @@ export const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
                     {masterOpen && (
                       <div className="border-l-2 border-primary-teal/50 ml-6 pl-4 space-y-1 animate-fade-in text-left">
                         {hasPermission("Status-list") && renderSubLink("Status", "/status")}
+                        {hasPermission("Lead-status-list") && renderSubLink("Lead Status", "/lead-status")}
                         {hasPermission("Product-list") && renderSubLink("Product", "/product")}
                         {hasPermission("Return-order-type-list") && renderSubLink("Return Order Type", "/return-order-type")}
                         {hasPermission("Reason-to-call-list") && renderSubLink("Reason to Call", "/reason-to-call")}

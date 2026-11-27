@@ -8,6 +8,7 @@ import { FiEdit, FiTrash2 } from "react-icons/fi";
 import { createLeadApi, updateLeadApi, fetchLeadById, fetchLatestLeadByPhone } from "../../services/leadService";
 import { createOrderApi } from "../../services/orderService";
 import { fetchCouriers } from "../../services/courierService";
+import { fetchLeadStatuses } from "../../services/leadStatusService";
 import { useToast } from "../../context/ToastContext";
 
 interface SelectedProductRow {
@@ -26,6 +27,7 @@ interface LeadFormModalProps {
   users: any[];
   products: any[];
   statusesOptions: any[];
+  leadStatusesOptions?: any[];
   reasonCallOptions: any[];
   defaultStatus?: string;
 }
@@ -38,6 +40,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
   users,
   products,
   statusesOptions,
+  leadStatusesOptions = [],
   reasonCallOptions,
   defaultStatus
 }) => {
@@ -48,6 +51,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState("");
+  const [leadStatus, setLeadStatus] = useState("");
   const [statusTwo, setStatusTwo] = useState("");
   const [noteText, setNoteText] = useState("");
   const [remarkText, setRemarkText] = useState("");
@@ -68,10 +72,22 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
   const [transactionId, setTransactionId] = useState("");
   const [deliveryNo, setDeliveryNo] = useState("");
   const [couriers, setCouriers] = useState<any[]>([]);
+  const [internalLeadStatuses, setInternalLeadStatuses] = useState<any[]>(leadStatusesOptions);
+  const leadStatusSearchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(true);
   const [isRepeatMode, setIsRepeatMode] = useState(false);
+
+  useEffect(() => {
+    if (leadStatusesOptions && leadStatusesOptions.length > 0) {
+      setInternalLeadStatuses(leadStatusesOptions);
+    } else if (isOpen && internalLeadStatuses.length === 0) {
+      fetchLeadStatuses({ page: 1, limit: 100 }).then(res => {
+        if (res && res.data) setInternalLeadStatuses(res.data);
+      }).catch(err => console.error(err));
+    }
+  }, [isOpen, leadStatusesOptions]);
 
   useEffect(() => {
     if (isOpen && couriers.length === 0) {
@@ -107,6 +123,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
           setName(fetchedData.name || "");
           setPhone(fetchedData.phone_number || "");
           setStatus(fetchedData.statusId || fetchedData.status?._id || fetchedData.status || "");
+          setLeadStatus(fetchedData.leadStatusId || fetchedData.lead_status?._id || fetchedData.lead_status || "");
           setStatusTwo(fetchedData.reasonCallId || fetchedData.reason_call?._id || fetchedData.reason_call || "");
           setNoteText(fetchedData.note || "");
           setRemarkText(fetchedData.remark || "");
@@ -152,6 +169,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
         setName("");
         setPhone("");
         setStatus(defaultStatus || statusesOptions[0]?._id || statusesOptions[0]?.id || "");
+        setLeadStatus("");
         setStatusTwo(reasonCallOptions[0]?._id || reasonCallOptions[0]?.id || "");
         setNoteText("");
         setRemarkText("");
@@ -366,6 +384,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       })),
       assgin: assignee,
       status: status,
+      lead_status: activeLead ? (leadStatus || null) : (leadStatus || undefined),
       reason_call: statusTwo,
       note: noteText,
       remark: remarkText,
@@ -472,7 +491,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Select
             label="Status"
             value={status}
@@ -480,6 +499,25 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
             options={[
               { value: "", label: "Select Status" },
               ...statusesOptions.map(s => ({ value: s._id || s.id, label: s.name }))
+            ]}
+          />
+          <Select
+            label="Lead Status"
+            value={leadStatus}
+            onChange={(e) => setLeadStatus(e.target.value)}
+            onSearchChange={(query) => {
+              if (leadStatusSearchTimer.current) clearTimeout(leadStatusSearchTimer.current);
+              leadStatusSearchTimer.current = setTimeout(() => {
+                fetchLeadStatuses({ page: 1, limit: 100, search: query || undefined })
+                  .then((res) => {
+                    if (res && res.data) setInternalLeadStatuses(res.data);
+                  })
+                  .catch((err) => console.error(err));
+              }, 250);
+            }}
+            options={[
+              { value: "", label: "Select Lead Status" },
+              ...internalLeadStatuses.map(ls => ({ value: ls._id || ls.id, label: ls.name }))
             ]}
           />
           <Select

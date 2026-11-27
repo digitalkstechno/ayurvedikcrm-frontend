@@ -15,6 +15,7 @@ export interface Lead {
   products?: any[];
   assgin?: any;
   status?: any;
+  lead_status?: any;
   reason_call?: any;
   note?: string;
   remark?: string;
@@ -43,6 +44,7 @@ export interface FetchParams {
   product?: string;
   assgin?: string;
   status?: string;
+  lead_status?: string;
   reason_call?: string;
   search?: string;
   startDate?: string;

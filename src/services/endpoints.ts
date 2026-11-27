@@ -13,6 +13,13 @@ export interface EndPointApi {
   statusDelete: string;
   statusExport: string;
 
+  // Lead Statuses
+  leadStatuses: string;
+  leadStatusCreate: string;
+  leadStatusUpdate: string;
+  leadStatusDelete: string;
+  leadStatusExport: string;
+
   // Return Order Types
   returnOrderTypes: string;
   returnOrderTypeCreate: string;
@@ -45,6 +52,7 @@ export interface EndPointApi {
   authLogin: string;
   authForgotPassword: string;
   authResetPassword: string;
+  authMe: string;
 
   // Teams
   teams: string;
@@ -113,6 +121,13 @@ const endPointApi: EndPointApi = {
   statusDelete: 'statuses',
   statusExport: 'statuses/export',
 
+  // Lead Statuses
+  leadStatuses: 'lead-statuses',
+  leadStatusCreate: 'lead-statuses',
+  leadStatusUpdate: 'lead-statuses',
+  leadStatusDelete: 'lead-statuses',
+  leadStatusExport: 'lead-statuses/export',
+
   // Return Order Types
   returnOrderTypes: 'return-order-types',
   returnOrderTypeCreate: 'return-order-types',
@@ -145,6 +160,7 @@ const endPointApi: EndPointApi = {
   authLogin: 'auth/login',
   authForgotPassword: 'auth/forgot-password',
   authResetPassword: 'auth/reset-password',
+  authMe: 'auth/me',
 
   // Teams
   teams: 'teams',

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getAuthenticatedUser } from "./authUtils";
 
 export const usePermission = () => {
@@ -6,7 +6,7 @@ export const usePermission = () => {
   const [roles, setRoles] = useState<string[]>([]);
   const [email, setEmail] = useState<string>("");
 
-  useEffect(() => {
+  const syncFromStorage = useCallback(() => {
     const u = getAuthenticatedUser();
     if (u) {
       setPermissions(u.permissions || {});
@@ -14,6 +14,16 @@ export const usePermission = () => {
       setEmail(u.email || "");
     }
   }, []);
+
+  useEffect(() => {
+    syncFromStorage();
+    window.addEventListener("auth-permissions-updated", syncFromStorage);
+    window.addEventListener("storage", syncFromStorage);
+    return () => {
+      window.removeEventListener("auth-permissions-updated", syncFromStorage);
+      window.removeEventListener("storage", syncFromStorage);
+    };
+  }, [syncFromStorage]);
 
   const hasPermission = (perm: string): boolean => {
     const isBypass = roles.some((r: string) =>

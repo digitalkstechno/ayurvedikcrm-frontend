@@ -26,6 +26,7 @@ interface SelectProps {
   required?: boolean;
   allowCustom?: boolean;
   menuPortalTarget?: boolean;
+  onSearchChange?: (query: string) => void;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -44,6 +45,7 @@ export const Select: React.FC<SelectProps> = ({
   allowCustom = false,
   multiple = false,
   menuPortalTarget = false,
+  onSearchChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [openUpwards, setOpenUpwards] = useState(false);
@@ -82,13 +84,13 @@ export const Select: React.FC<SelectProps> = ({
     return selectedOption ? selectedOption.label : (value || placeholder);
   }, [value, multiple, options, selectedOption, placeholder]);
 
-  // Filter options based on search query
+  // Filter options based on search query (skip client-side filtering when backend search is provided)
   const filteredOptions = useMemo(() => {
-    if (!searchQuery) return options;
+    if (onSearchChange || !searchQuery) return options;
     return options.filter((opt) =>
       opt.label.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [options, searchQuery]);
+  }, [options, searchQuery, onSearchChange]);
 
   // Handle click outside to close dropdown and check position
   useEffect(() => {
@@ -139,6 +141,7 @@ export const Select: React.FC<SelectProps> = ({
       setTimeout(() => searchInputRef.current?.focus(), 100);
     } else {
       setSearchQuery("");
+      onSearchChange?.("");
     }
   }, [isOpen]);
 
@@ -210,13 +213,18 @@ export const Select: React.FC<SelectProps> = ({
           type="text"
           placeholder="Search..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setSearchQuery(val);
+            onSearchChange?.(val);
+          }}
           className="w-full bg-transparent border-none outline-none text-xs text-text-primary placeholder:text-text-secondary/50 py-1"
           onClick={(e) => e.stopPropagation()}
         />
         {searchQuery && (
           <button 
-            onClick={(e) => { e.stopPropagation(); setSearchQuery(""); }}
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setSearchQuery(""); onSearchChange?.(""); }}
             className="text-text-secondary hover:text-text-primary transition-colors"
           >
             <Close style={{ fontSize: 14 }} />

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { fetchStatuses, reorderStatuses } from "../../services/statusService";
+import { fetchLeadStatuses } from "../../services/leadStatusService";
 import { fetchLeads, updateLeadApi } from "../../services/leadService";
 import { fetchUsers } from "../../services/userService";
 import { usePermission } from "../../utils/permissionUtils";
@@ -18,6 +19,7 @@ import { Loader } from "../../components/common/Loader";
 export default function KanbanListPage() {
   const { hasPermission } = usePermission();
   const [statuses, setStatuses] = useState<any[]>([]);
+  const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -151,6 +153,7 @@ export default function KanbanListPage() {
       name: customerName || l.name,
       customerPhone,
       statusName:  l.status?.name || l.status || "Open",
+      leadStatusName: l.lead_status?.name || "",
       productName: l.product || (l.products?.map((p: any) => p.name).join(", ") || "No Product"),
       assginId,
       assginName:  fromObj.name  || fromLookup.name,
@@ -174,8 +177,9 @@ export default function KanbanListPage() {
 
     const loadMasterData = async () => {
       try {
-        const [statusesRes, usersRes, productsRes, reasonsRes] = await Promise.all([
+        const [statusesRes, leadStatusesRes, usersRes, productsRes, reasonsRes] = await Promise.all([
           fetchStatuses({ page: 1, limit: 100 }),
+          fetchLeadStatuses({ page: 1, limit: 100 }),
           fetchUsers({ page: 1, limit: 100 }),
           fetchProducts({ page: 1, limit: 100 }),
           fetchReasonToCalls({ page: 1, limit: 100 })
@@ -184,6 +188,7 @@ export default function KanbanListPage() {
         setProducts(productsRes.data);
         setReasonsOptions(reasonsRes.data);
         setStatuses(statusesRes.data);
+        setLeadStatuses(leadStatusesRes.data);
 
         const user = getAuthenticatedUser();
         let initialAssigneeFilter = "all";
@@ -452,6 +457,7 @@ export default function KanbanListPage() {
         users={users}
         products={products}
         statusesOptions={statuses}
+        leadStatusesOptions={leadStatuses}
         reasonCallOptions={reasonsOptions}
         defaultStatus={defaultStatusId}
       />
@@ -832,6 +838,14 @@ export default function KanbanListPage() {
             <div className="flex items-center justify-between text-xs bg-amber-50/80 border border-amber-200/70 text-amber-900 px-2.5 py-1.5 rounded-lg font-medium">
               <span className="text-[11px] text-amber-800 font-bold">Reason:</span>
               <span className="font-semibold">{hoveredLeadInfo.lead.reasonCallName}</span>
+            </div>
+          )}
+
+          {/* Lead Status */}
+          {hoveredLeadInfo.lead.leadStatusName && (
+            <div className="flex items-center justify-between text-xs bg-teal-50/80 border border-teal-200/70 text-teal-900 px-2.5 py-1.5 rounded-lg font-medium">
+              <span className="text-[11px] text-teal-800 font-bold">Lead Status:</span>
+              <span className="font-semibold">{hoveredLeadInfo.lead.leadStatusName}</span>
             </div>
           )}
 

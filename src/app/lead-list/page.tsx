@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { fetchUsers } from "../../services/userService";
 import { fetchProducts } from "../../services/productService";
 import { fetchStatuses } from "../../services/statusService";
+import { fetchLeadStatuses } from "../../services/leadStatusService";
 import { fetchLeads, updateLeadApi, deleteLeadApi, exportLeads } from "../../services/leadService";
 import { createOrderApi } from "../../services/orderService";
 import { fetchReasonToCalls } from "../../services/reasonToCallService";
@@ -62,6 +63,9 @@ export default function LeadListPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [statuses, setStatuses] = useState<any[]>([]);
+  const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
+  const [filterLeadStatusOptions, setFilterLeadStatusOptions] = useState<any[]>([]);
+  const leadStatusFilterSearchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [couriers, setCouriers] = useState<any[]>([]);
   const [reasonsOptions, setReasonsOptions] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -74,6 +78,7 @@ export default function LeadListPage() {
   const [filterProduct, setFilterProduct] = useState<string[]>(["all"]);
   const [filterAssignee, setFilterAssignee] = useState<string[]>(["all"]);
   const [filterStatus, setFilterStatus] = useState<string[]>(["all"]);
+  const [filterLeadStatus, setFilterLeadStatus] = useState<string[]>(["all"]);
   const [filterReason, setFilterReason] = useState<string[]>(["all"]);
   const [filterAge, setFilterAge] = useState<string>("all");
   const [filterOrderStatus, setFilterOrderStatus] = useState<string>("all");
@@ -103,6 +108,7 @@ export default function LeadListPage() {
         product: filterProduct.includes('all') ? undefined : filterProduct.join(','),
         assgin: assigneeFilter,
         status: filterStatus.includes('all') ? undefined : filterStatus.join(','),
+        lead_status: filterLeadStatus.includes('all') ? undefined : filterLeadStatus.join(','),
         reason_call: filterReason.includes('all') ? undefined : filterReason.join(','),
         startDate: startToUse || undefined,
         endDate: endToUse || undefined,
@@ -124,6 +130,8 @@ export default function LeadListPage() {
         time: l.createdAt ? new Date(l.createdAt).toTimeString().split(' ')[0].substring(0, 5) : "",
         status: l.status?.name || l.status || "Open",
         statusId: l.status?._id || l.status || "",
+        lead_status: l.lead_status?.name || l.lead_status || "",
+        leadStatusId: l.lead_status?._id || l.lead_status || "",
         reason_call: l.reason_call?.name || l.reason_call || "",
         reasonCallId: l.reason_call?._id || l.reason_call || "",
         note: l.note || "",
@@ -153,15 +161,18 @@ export default function LeadListPage() {
 
     const loadMasterData = async () => {
       try {
-        const [usersRes, prodsRes, statusRes, reasonRes] = await Promise.all([
+        const [usersRes, prodsRes, statusRes, leadStatusRes, reasonRes] = await Promise.all([
           fetchUsers({ page: 1, limit: 100 }),
           fetchProducts({ page: 1, limit: 100 }),
           fetchStatuses({ page: 1, limit: 100 }),
+          fetchLeadStatuses({ page: 1, limit: 100 }),
           fetchReasonToCalls({ page: 1, limit: 100 })
         ]);
         setUsers(usersRes.data);
         setProducts(prodsRes.data);
         setStatuses(statusRes.data);
+        setLeadStatuses(leadStatusRes.data);
+        setFilterLeadStatusOptions(leadStatusRes.data);
         setReasonsOptions(reasonRes.data);
       } catch (err) {
         console.error("Error loading master data", err);
@@ -190,7 +201,7 @@ export default function LeadListPage() {
       setCurrentPage(1);
       loadLeadsData(undefined, undefined, undefined, 1);
     }
-  }, [filterProduct, filterAssignee, filterStatus, filterReason, filterAge, filterOrderStatus]);
+  }, [filterProduct, filterAssignee, filterStatus, filterLeadStatus, filterReason, filterAge, filterOrderStatus]);
 
 
   const updateLead = async (id: string, updated: Partial<Lead>) => {
@@ -470,6 +481,7 @@ export default function LeadListPage() {
         product: filterProduct.includes('all') ? undefined : filterProduct.join(','),
         assgin: assigneeFilter,
         status: filterStatus.includes('all') ? undefined : filterStatus.join(','),
+        lead_status: filterLeadStatus.includes('all') ? undefined : filterLeadStatus.join(','),
         reason_call: filterReason.includes('all') ? undefined : filterReason.join(','),
         startDate: startDate || undefined,
         endDate: endDate || undefined,
@@ -529,6 +541,21 @@ export default function LeadListPage() {
           </div>
         );
       }
+    },
+    {
+      key: "lead_status",
+      header: "Lead Status",
+      render: (val, row) => (
+        <div className="w-[140px]">
+          <Select
+            value={(row as any).leadStatusId || val || ""}
+            onChange={(e) => updateLead(row.id, { lead_status: (e.target.value as string) || null, leadStatusId: e.target.value as string } as any)}
+            options={[{ value: "", label: "Select Lead Status" }, ...leadStatuses.map(s => ({ value: s._id || s.id, label: s.name }))]}
+            placeholder="Lead Status"
+            menuPortalTarget={true}
+          />
+        </div>
+      )
     },
     {
       key: "reason_call",
@@ -619,6 +646,7 @@ export default function LeadListPage() {
         users={users}
         products={products}
         statusesOptions={statuses}
+        leadStatusesOptions={leadStatuses}
         reasonCallOptions={reasonsOptions}
       />
 
@@ -645,6 +673,16 @@ export default function LeadListPage() {
                 className="rounded-lg px-6"
               >
                 Add Lead
+              </Button>
+            )}
+            {hasPermission("Lead-export") && (
+              <Button
+                variant="outline"
+                className="rounded-lg"
+                onClick={handleExport}
+                isLoading={isExporting}
+              >
+                Export
               </Button>
             )}
           </div>
@@ -685,6 +723,27 @@ export default function LeadListPage() {
               options={[
                 { value: "all", label: "Select Status" },
                 ...statuses.map(s => ({ value: s._id || s.id, label: s.name }))
+              ]}
+            />
+          </div>
+          <div className="w-full sm:w-auto sm:flex-1 min-w-[160px]">
+            <Select
+              multiple={true}
+              value={filterLeadStatus}
+              onChange={(e) => setFilterLeadStatus(e.target.value as unknown as string[])}
+              onSearchChange={(query) => {
+                if (leadStatusFilterSearchTimer.current) clearTimeout(leadStatusFilterSearchTimer.current);
+                leadStatusFilterSearchTimer.current = setTimeout(() => {
+                  fetchLeadStatuses({ page: 1, limit: 100, search: query || undefined })
+                    .then((res) => {
+                      if (res && res.data) setFilterLeadStatusOptions(res.data);
+                    })
+                    .catch((err) => console.error(err));
+                }, 250);
+              }}
+              options={[
+                { value: "all", label: "Select Lead Status" },
+                ...filterLeadStatusOptions.map(s => ({ value: s._id || s.id, label: s.name }))
               ]}
             />
           </div>
@@ -739,6 +798,7 @@ export default function LeadListPage() {
               onClick={() => {
                 setFilterProduct(["all"]);
                 setFilterStatus(["all"]);
+                setFilterLeadStatus(["all"]);
                 setFilterReason(["all"]);
                 setFilterAge("all");
                 setFilterOrderStatus("all");
@@ -765,16 +825,6 @@ export default function LeadListPage() {
                 }}
               >
                 Assign Lead
-              </Button>
-            )}
-            {hasPermission("Lead-export") && (
-              <Button
-                variant="outline"
-                className="rounded-lg"
-                onClick={handleExport}
-                isLoading={isExporting}
-              >
-                Export
               </Button>
             )}
           </div>
